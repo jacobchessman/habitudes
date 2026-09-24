@@ -925,7 +925,7 @@ function groupTile(gd, gt, board) {
   const medals = ['🥇', '🥈', '🥉'];
   return `<section class="card tile group-tile">
     <div class="gt-top">${ring(gd, gt, 54, 6)}<div><div class="k">Le groupe aujourd’hui</div><div class="v num">${gt ? Math.round(gd / gt * 100) : 0}<small> %</small></div></div></div>
-    <div class="gt-pod">${board.slice(0, 3).map((o, i) => `<span style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} sur 7 jours">${medals[i]} ${esc(o.p.name)} <b class="num">${pct(o.r)}</b></span>`).join('')}</div>
+    <div class="gt-pod">${board.slice(0, 3).map((o, i) => `<span style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${o.s.done}/${o.s.total} aujourd’hui">${medals[i]} ${esc(o.p.name)} <b class="num">${pct(o.r)}</b></span>`).join('')}</div>
   </section>`;
 }
 function notesTile() {
@@ -1283,7 +1283,9 @@ function render() {
 
   // Groupe
   let gd = 0, gt = 0; for (const p of ps) { const s = M.day(p.id, todayKey); gd += s.done; gt += s.total; }
-  const board = ps.map(p => ({ p, r: M.rateRange(p.id, 0, 7) })).filter(o => o.r !== null).sort((a, b) => b.r - a.r);
+  // Podium du jour: seulement les habitudes d'aujourd'hui (pas hier ni la semaine)
+  const board = ps.map(p => { const s = M.day(p.id, todayKey); return { p, s, r: s.total ? s.done / s.total : null }; })
+    .filter(o => o.r !== null).sort((a, b) => b.r - a.r || b.s.done - a.s.done);
   const medals = ['🥇', '🥈', '🥉'];
   const top = `
     <div class="top">

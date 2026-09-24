@@ -107,6 +107,46 @@
   .editor-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
   .editor .cancel { background:var(--cell); color:var(--ink); }
   .editor .btn { white-space:normal; }
+  /* Sections repliables */
+  button.sect { width:100%; background:none; border:0; padding:4px 0; margin:0 0 8px; cursor:pointer; font:inherit; font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; text-align:left; }
+  button.sect:hover { color:var(--ink2); }
+  button.sect .chev { display:inline-block; transition:transform .2s; margin-left:6px; font-size:13px; }
+  button.sect[aria-expanded="false"] .chev { transform:rotate(-90deg); }
+  button.sect[aria-expanded="false"] { margin-bottom:14px; }
+  .fold.hidden { display:none; }
+  .bdg .pg { display:none; }
+
+  /* Centre de notifications */
+  dialog.nc { width:min(520px,calc(100% - 24px)); max-height:calc(100dvh - 40px); overflow:auto; }
+  .nc-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px; }
+  .nc-head h2 { margin:0; }
+  .nc-x { background:var(--cell); border:0; width:32px; height:32px; border-radius:50%; cursor:pointer; color:var(--ink); font-size:15px; }
+  .nc-sec { margin-top:20px; }
+  .nc-sec > h4 { margin:0 0 8px; font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; }
+  .nc-dev { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-radius:14px; background:var(--cell); font-size:14px; flex-wrap:wrap; }
+  .nc-dev .btn { padding:8px 14px; font-size:14px; }
+  .nc-opt { display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-top:1px solid var(--line); }
+  .nc-opt:first-of-type { border-top:0; }
+  .nc-opt .e { font-size:20px; line-height:1.2; }
+  .nc-opt .tx { flex:1; min-width:0; }
+  .nc-opt .tx b { display:block; font-size:15px; }
+  .nc-opt .tx span { display:block; font-size:13px; color:var(--ink2); margin-top:2px; }
+  .nc-opt .tx .ex { color:var(--mute); font-style:italic; }
+  .nc-opt select { margin-top:8px; width:auto; padding:6px 10px; font-size:14px; }
+  .sw { position:relative; width:44px; height:26px; flex:none; margin-top:2px; }
+  .sw input { opacity:0; width:0; height:0; position:absolute; }
+  .sw i { position:absolute; inset:0; border-radius:13px; background:var(--box); transition:background .2s; cursor:pointer; }
+  .sw i::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
+  .sw input:checked + i { background:var(--c0); }
+  .sw input:checked + i::after { transform:translateX(18px); }
+  .sw input:focus-visible + i { outline:2px solid var(--c3); outline-offset:2px; }
+  .nc-list { list-style:none; margin:0; padding:0; }
+  .nc-list li { display:flex; gap:10px; padding:9px 0; border-top:1px solid var(--line); font-size:14px; align-items:baseline; }
+  .nc-list li:first-child { border-top:0; }
+  .nc-list .w { color:var(--mute); font-size:12px; white-space:nowrap; min-width:74px; }
+  .nc-list .off { color:var(--mute); }
+  .nc-list .tx { flex:1; min-width:0; }
+  .nc-list .tx small { display:block; color:var(--mute); }
   .editor-error { color:var(--c2); min-height:20px; margin-top:10px; font-size:13px; }
   button:disabled { cursor:default; opacity:.6; }
   .setup { margin-bottom:18px; border-color:color-mix(in srgb, var(--c3) 40%, var(--line)); background:color-mix(in srgb, var(--c3) 8%, var(--card)); }
@@ -277,6 +317,7 @@
 <main id="app"></main>
 <div id="tip"></div>
 <dialog id="edit-dialog" class="editor" aria-labelledby="editor-title"></dialog>
+<dialog id="notif-center" class="editor nc" aria-labelledby="nc-title"></dialog>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
@@ -433,19 +474,48 @@ function badgesFor(uid, M) {
   const habits = M.habitsOf(uid, true);
   const mine = data.checks.filter(c => c.user_id === uid);
   const bestAny = Math.max(0, ...habits.map(M.best));
+  const perfectDays = lastDays(400).filter(d => M.perfect(uid, ymd(d)));
+  const bestPerfect = M.bestPerfectRun(uid);
+  const r30 = M.rateRange(uid, 0, 30) ?? 0;
   const hour = c => c.created_at && c.day === ymd(new Date(c.created_at)) ? new Date(c.created_at).getHours() : null;
+  const weekend = perfectDays.some(d => d.getDay() === 6 && M.perfect(uid, ymd(addDays(d, 1))));
+  // Premier arrivé: jours où cette personne a fini sa journée avant tous les autres qui l'ont finie
+  const finish = (u, k) => M.perfect(u, k) ? data.checks.filter(c => c.user_id === u && c.day === k).reduce((m, c) => c.created_at > m ? c.created_at : m, '') : null;
+  const others = data.profiles.map(p => p.id).filter(id => id !== uid);
+  const firsts = perfectDays.filter(d => { const k = ymd(d), mineT = finish(uid, k); const o = others.map(u => finish(u, k)).filter(Boolean); return o.length && o.every(x => mineT && mineT < x); }).length;
+  const withHabits = data.profiles.filter(p => M.habitsOf(p.id, true).length).map(p => p.id);
+  const team = withHabits.length >= 2 && lastDays(400).some(d => withHabits.every(u => M.perfect(u, ymd(d))));
+  const pg = (n, goal) => `${Math.min(n, goal)}/${goal}`;
   return [
     { e:'🌱', t:'Premier pas', d:'1er coché', ok: mine.length >= 1 },
-    { e:'🔥', t:'En feu', d:'3 jours de suite', ok: bestAny >= 3 },
-    { e:'⚡', t:'Une semaine', d:'7 jours de suite', ok: bestAny >= 7 },
-    { e:'🏔️', t:'Un mois', d:'30 jours de suite', ok: bestAny >= 30 },
-    { e:'✨', t:'Journée parfaite', d:'tout coché en une journée', ok: lastDays(400).some(d => M.perfect(uid, ymd(d))) },
-    { e:'🏆', t:'Semaine parfaite', d:'7 journées parfaites de suite', ok: M.bestPerfectRun(uid) >= 7 },
-    { e:'💯', t:'Centurion', d:'100 cochés', ok: mine.length >= 100 },
+    { e:'🔥', t:'En feu', d:'3 jours de suite', ok: bestAny >= 3, pg: pg(bestAny, 3) },
+    { e:'⚡', t:'Une semaine', d:'7 jours de suite', ok: bestAny >= 7, pg: pg(bestAny, 7) },
+    { e:'🌊', t:'Deux semaines', d:'14 jours de suite', ok: bestAny >= 14, pg: pg(bestAny, 14) },
+    { e:'🏔️', t:'Un mois', d:'30 jours de suite', ok: bestAny >= 30, pg: pg(bestAny, 30) },
+    { e:'💎', t:'Cent jours', d:'100 jours de suite', ok: bestAny >= 100, pg: pg(bestAny, 100) },
+    { e:'✨', t:'Journée parfaite', d:'tout coché en une journée', ok: perfectDays.length >= 1 },
+    { e:'🎉', t:'Week-end parfait', d:'samedi et dimanche parfaits', ok: weekend },
+    { e:'🏆', t:'Semaine parfaite', d:'7 journées parfaites de suite', ok: bestPerfect >= 7, pg: pg(bestPerfect, 7) },
+    { e:'👑', t:'Mois parfait', d:'30 journées parfaites de suite', ok: bestPerfect >= 30, pg: pg(bestPerfect, 30) },
+    { e:'🎯', t:'Régulier', d:'80 % sur 30 jours', ok: r30 >= .8, pg: `${Math.round(r30 * 100)} %` },
+    { e:'💯', t:'Centurion', d:'100 cochés', ok: mine.length >= 100, pg: pg(mine.length, 100) },
+    { e:'🚀', t:'Fusée', d:'500 cochés', ok: mine.length >= 500, pg: pg(mine.length, 500) },
     { e:'🌅', t:'Lève-tôt', d:'coché avant 7 h', ok: mine.some(c => { const h = hour(c); return h !== null && h < 7; }) },
     { e:'🦉', t:'Oiseau de nuit', d:'coché après 23 h', ok: mine.some(c => { const h = hour(c); return h !== null && h >= 23; }) },
-    { e:'🧱', t:'Bâtisseur', d:'5 habitudes', ok: habits.length >= 5 },
+    { e:'🧱', t:'Bâtisseur', d:'5 habitudes', ok: habits.length >= 5, pg: pg(habits.length, 5) },
+    { e:'🥇', t:'Premier arrivé', d:'finir sa journée avant tout le groupe', ok: firsts >= 1 },
+    { e:'🤝', t:'Esprit d’équipe', d:'tout le groupe parfait le même jour', ok: team },
   ];
+}
+
+// Sections repliables: le choix vaut pour toutes les cartes, sur cet appareil.
+function shown(key) { try { return localStorage.getItem(`habitudes:show:${key}`) !== '0'; } catch { return true; } }
+function toggleFold(key) {
+  const on = !shown(key);
+  try { localStorage.setItem(`habitudes:show:${key}`, on ? '1' : '0'); } catch {}
+  app.querySelectorAll(`[data-fold="${key}"]`).forEach(b => b.setAttribute('aria-expanded', on));
+  app.querySelectorAll(`[data-fold-body="${key}"]`).forEach(b => b.classList.toggle('hidden', !on));
+  if (on && key === 'heat') app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
 }
 
 // La couleur suit la personne (ordre stable par id), jamais son rang.
@@ -512,10 +582,10 @@ const swReady = pushOK ? navigator.serviceWorker.register('sw.js').catch(() => n
 
 function notifButton() {
   const b = {
-    on: ['on', '🔔 Notifs activées', 'Clique pour recevoir une notification d’essai'],
-    off: ['off', '🔔 Activer les notifs', 'Rappel à 21 h et journées parfaites des autres'],
-    denied: ['', '🔕 Notifs bloquées', 'Réactive-les dans les réglages du navigateur pour ce site'],
-    ios: ['', '📲 Notifs: installe l’appli', 'Sur iPhone: Partager → Sur l’écran d’accueil, puis ouvre l’appli de là'],
+    on: ['on', '🔔 Notifications', 'Centre de notifications: ce que tu reçois et ce qui s’en vient'],
+    off: ['off', '🔔 Activer les notifs', 'Centre de notifications'],
+    denied: ['', '🔕 Notifs bloquées', 'Centre de notifications'],
+    ios: ['', '📲 Notifications', 'Centre de notifications'],
   }[notif];
   return b ? `<button class="notif ${b[0]}" id="notif" data-tip="${b[2]}">${b[1]}</button>` : '';
 }
@@ -533,7 +603,7 @@ async function refreshNotif() {
     notif = sub && Notification.permission === 'granted' ? 'on' : 'off';
     if (notif === 'on') saveSub(sub); // rattache l'appareil au compte connecté
   }
-  if (me) render(); // le bouton et la carte d'installation dépendent de l'état
+  if (me) { render(); renderCenter(); } // le bouton, la carte d'installation et le centre dépendent de l'état
 }
 const inAppBrowser = isIOS && (/GSA|FBAN|FBAV|Instagram|Line|Snapchat|LinkedIn|Messenger/.test(navigator.userAgent) || !/Safari/.test(navigator.userAgent));
 const SHARE = '<span class="ico"><svg width="14" height="16" viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V1M3.5 4.5 7 1l3.5 3.5M4 7H2v10h10V7h-2"/></svg></span>';
@@ -551,7 +621,7 @@ function setupCard() {
     <ol><li><span>Touche ${SHARE} <b>Partager</b>, en bas de Safari</span></li><li><span>Défile et choisis <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b></span></li><li><span>Ferme Safari et ouvre <b>Habitudes</b> depuis ton écran d'accueil</span></li><li><span>Là, touche <b>Activer</b> puis <b>Autoriser</b></span></li></ol>
     <div class="row">${guide}${skip}</div></section>`;
   if (notif === 'off') return `<section class="card setup"><h3>🔔 Dernière étape: active les notifications</h3>
-    <p>Rappel à 21 h s'il te reste des habitudes, et une alerte quand quelqu'un finit sa journée. Ton appareil va demander la permission: touche <b>Autoriser</b>.</p>
+    <p>Un rappel le soir s'il te reste des habitudes (21 h, ou l'heure que tu choisis), et une alerte quand quelqu'un finit sa journée. Ton appareil va demander la permission: touche <b>Autoriser</b>.</p>
     <div class="row"><button class="btn go" id="setup-go">Activer les notifications</button>${guide}${skip}</div></section>`;
   if (notif === 'denied') return `<section class="card setup"><h3>🔕 Les notifications sont bloquées</h3>
     <p>Tu as refusé la permission. Pour la redonner, le guide explique où la trouver selon ton appareil.</p>
@@ -579,6 +649,85 @@ async function onNotifClick() {
   } catch (e) { alert('Impossible d’activer les notifications: ' + (e?.message || e)); }
   refreshNotif();
 }
+
+// ---------- Centre de notifications ----------
+const DEFAULT_PREFS = { reminder: true, reminder_hour: 21, streak: true, perfect: true };
+let myPrefs = { ...DEFAULT_PREFS };
+async function loadPrefs() {
+  const { data: row } = await sb.from('notif_prefs').select('*').eq('user_id', me.id).maybeSingle();
+  myPrefs = { ...DEFAULT_PREFS, ...(row || {}) };
+}
+async function savePrefs(patch) {
+  myPrefs = { ...myPrefs, ...patch };
+  const { reminder, reminder_hour, streak, perfect } = myPrefs;
+  const { error } = await sb.from('notif_prefs').upsert({ user_id: me.id, reminder, reminder_hour, streak, perfect, updated_at: new Date().toISOString() });
+  toast(error ? 'Oups, pas enregistré' : 'Enregistré ✓');
+  if (!error) renderCenter();
+}
+// Ce qui va partir, calculé comme le fait le serveur.
+function upcoming() {
+  const M = model(), now = new Date(), today = ymd(now), pr = myPrefs, out = [];
+  const mine = M.habitsOf(me.id), s = M.day(me.id, today);
+  const set = M.set, left = mine.filter(h => !set.has(h.id + today));
+  const streakTo = h => { let n = 0, d = addDays(now, -1); while (set.has(h.id + ymd(d))) { n++; d = addDays(d, -1); } return n; };
+  const risk = left.map(h => ({ h, n: streakTo(h) })).filter(x => x.n >= 3).sort((a, b) => b.n - a.n)[0];
+  const at = `${pr.reminder_hour} h`, past = now.getHours() >= pr.reminder_hour;
+  if (!pr.reminder && !pr.streak) out.push({ w: at, off: true, t: 'Rappel du soir désactivé' });
+  else if (past) out.push({ w: `demain ${at}`, t: 'Rappel, s’il te reste des habitudes', s: 'Celui d’aujourd’hui est déjà passé.' });
+  else if (!s.total) out.push({ w: at, off: true, t: 'Rien: tu n’as pas encore d’habitude' });
+  else if (s.done === s.total) out.push({ w: at, off: true, t: 'Rien ce soir: tout est coché ✓' });
+  else if (risk && pr.streak) out.push({ w: at, t: `🔥 Ta série de ${risk.n} jours sur ${risk.h.name} tombe à minuit`, s: `${s.done}/${s.total} fait. Reste: ${left.map(h => h.name).join(', ')}.` });
+  else if (pr.reminder) out.push({ w: at, t: `Il te reste ${left.length} habitude${left.length > 1 ? 's' : ''} aujourd’hui`, s: `Reste: ${left.map(h => h.name).join(', ')}. Disparaît si tu finis avant.` });
+  else out.push({ w: at, off: true, t: 'Rien: seulement « série en danger » est activé, et aucune série n’est menacée' });
+  for (const p of data.profiles.filter(p => p.id !== me.id && M.habitsOf(p.id).length)) {
+    const o = M.day(p.id, today);
+    if (!pr.perfect) { out.push({ w: 'quand', off: true, t: `${p.name} finit sa journée (désactivé)` }); continue; }
+    out.push(o.total && o.done === o.total
+      ? { w: 'fait', off: true, t: `${p.name} a déjà fini sa journée ✨`, s: 'Déjà envoyé aujourd’hui.' }
+      : { w: 'quand', t: `${p.name} a fini sa journée ✨`, s: `Quand ${p.name} aura tout coché (${o.done}/${o.total} pour l’instant).` });
+  }
+  return out;
+}
+let notifHistory = [];
+async function openCenter() {
+  const dlg = document.getElementById('notif-center');
+  if (!dlg.open) dlg.showModal();
+  renderCenter();
+  await Promise.all([loadPrefs(), sb.from('notif_history').select('*').order('sent_at', { ascending: false }).limit(15).then(r => { notifHistory = r.data || []; })]);
+  renderCenter();
+}
+function renderCenter() {
+  const dlg = document.getElementById('notif-center');
+  if (!dlg.open) return;
+  const dev = {
+    on: `<span>✅ Activées sur cet appareil</span><button class="btn" id="nc-test">Envoyer un essai</button>`,
+    off: `<span>Pas encore activées sur cet appareil</span><button class="btn" id="nc-enable">Activer</button>`,
+    denied: `<span>🔕 Bloquées sur cet appareil</span><a class="link" href="guide.html#bloquees">Comment les débloquer</a>`,
+    ios: `<span>📲 Sur iPhone, installe d’abord l’appli</span><a class="link" href="guide.html">Voir les étapes</a>`,
+    unsupported: `<span>Ce navigateur ne gère pas les notifications</span><a class="link" href="guide.html">Guide</a>`,
+  }[notif];
+  const opt = (key, e, title, desc, ex, extra = '') => `<div class="nc-opt"><span class="e">${e}</span><div class="tx"><b>${title}</b><span>${desc}</span><span class="ex">${ex}</span>${extra}</div>
+    <label class="sw"><input type="checkbox" data-pref="${key}" ${myPrefs[key] ? 'checked' : ''} aria-label="${title}"><i></i></label></div>`;
+  const hours = [17,18,19,20,21,22,23].map(h => `<option value="${h}" ${h === myPrefs.reminder_hour ? 'selected' : ''}>${h} h</option>`).join('');
+  const kinds = { reminder: '⏰', streak: '🔥', perfect: '✨', test: '🔔' };
+  dlg.innerHTML = `
+    <div class="nc-head"><h2 id="nc-title">Notifications</h2><button class="nc-x" id="nc-close" aria-label="Fermer">✕</button></div>
+    <div class="nc-dev">${dev}</div>
+    <div class="nc-sec"><h4>Ce que tu reçois</h4>
+      ${opt('reminder', '⏰', 'Rappel du soir', 'Seulement s’il te reste des habitudes à cocher.', '« Il te reste 2 habitudes aujourd’hui »', `<select id="nc-hour" aria-label="Heure du rappel" ${myPrefs.reminder || myPrefs.streak ? '' : 'disabled'}>${hours}</select>`)}
+      ${opt('streak', '🔥', 'Série en danger', 'Quand une série de 3 jours ou plus va casser à minuit. Remplace le rappel ce soir-là.', '« Ta série de 12 jours sur Gym tombe à minuit »')}
+      ${opt('perfect', '✨', 'Journées parfaites du groupe', 'Quand quelqu’un finit toutes ses habitudes de la journée.', '« Vincent a fini sa journée ✨ »')}
+    </div>
+    <div class="nc-sec"><h4>À venir</h4><ul class="nc-list">${upcoming().map(u => `<li class="${u.off ? 'off' : ''}"><span class="w">${esc(u.w)}</span><span class="tx">${esc(u.t)}${u.s ? `<small>${esc(u.s)}</small>` : ''}</span></li>`).join('')}</ul></div>
+    <div class="nc-sec"><h4>Reçues récemment</h4>${notifHistory.length ? `<ul class="nc-list">${notifHistory.map(h => `<li><span class="w">${ago(h.sent_at)}</span><span class="tx">${kinds[h.kind] || '🔔'} ${esc(h.title)}${h.body ? `<small>${esc(h.body)}</small>` : ''}</span></li>`).join('')}</ul>` : '<div class="empty">Rien encore.</div>'}</div>
+    <div class="nc-sec" style="font-size:13px"><a class="link" href="guide.html">Guide d’installation par appareil</a></div>`;
+  document.getElementById('nc-close').onclick = () => dlg.close();
+  document.getElementById('nc-test')?.addEventListener('click', onNotifClick);
+  document.getElementById('nc-enable')?.addEventListener('click', onNotifClick);
+  dlg.querySelectorAll('[data-pref]').forEach(i => i.onchange = () => savePrefs({ [i.dataset.pref]: i.checked }));
+  document.getElementById('nc-hour').onchange = e => savePrefs({ reminder_hour: Number(e.target.value) });
+}
+document.addEventListener('click', e => { const d = document.getElementById('notif-center'); if (d?.open && e.target === d) d.close(); }); // clic hors de la fenêtre
 
 // ---------- The Frog et modification des habitudes ----------
 const frogFor = uid => data.frogChoices.find(f => f.user_id === uid);
@@ -746,11 +895,15 @@ function render() {
         <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
           ${mine ? `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
         </div>
-        <div class="sect"><span>30 dernières semaines</span></div>
+        <button class="sect" data-fold="heat" aria-expanded="${shown('heat')}"><span>30 dernières semaines</span><span class="chev">▾</span></button>
+        <div class="fold ${shown('heat') ? '' : 'hidden'}" data-fold-body="heat">
         <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
         <div class="heat-foot"><span>${data.checks.filter(c => c.user_id === p.id).length} cochés au total</span><span class="legend">moins <i style="background:var(--cell)"></i><i style="background:color-mix(in srgb, var(--pc) 30%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 55%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 78%, var(--cell))"></i><i style="background:var(--pc)"></i> tout</span></div>
-        <div class="sect"><span>Badges</span><span>${bs.filter(b => b.ok).length}/${bs.length}</span></div>
-        <div class="badges">${bs.map(b => `<span class="bdg ${b.ok?'':'off'}" data-tip="${b.t} · ${b.d}${b.ok ? ' ✓' : ''}">${b.e}</span>`).join('')}</div>
+        </div>
+        <button class="sect" data-fold="badges" aria-expanded="${shown('badges')}"><span>Badges · ${bs.filter(b => b.ok).length}/${bs.length}</span><span class="chev">▾</span></button>
+        <div class="fold ${shown('badges') ? '' : 'hidden'}" data-fold-body="badges">
+        <div class="badges">${bs.map(b => `<span class="bdg ${b.ok?'':'off'}" data-tip="${b.t} · ${b.d}${b.ok ? ' ✓' : b.pg ? ` · ${b.pg}` : ''}">${b.e}</span>`).join('')}</div>
+        </div>
       </section>`;
   }).join('');
 
@@ -813,8 +966,9 @@ function bind() {
   app.querySelectorAll('[data-choose-frog]').forEach(b => b.onclick = () => openEditor('frog'));
   app.querySelectorAll('[data-retry-frog]').forEach(b => b.onclick = () => load());
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
-  document.getElementById('notif')?.addEventListener('click', onNotifClick);
+  document.getElementById('notif')?.addEventListener('click', openCenter);
   document.getElementById('setup-go')?.addEventListener('click', onNotifClick);
+  app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold));
   document.getElementById('setup-later')?.addEventListener('click', () => { try { localStorage.setItem('habitudes:notif-plus-tard', Date.now() + 3 * 864e5); } catch {} render(); });
   document.getElementById('out').onclick = () => sb.auth.signOut();
   const add = async () => {
@@ -879,6 +1033,7 @@ async function enter(session) {
   await load();
   subscribe();
   refreshNotif();
+  loadPrefs();
 }
 
 sb.auth.onAuthStateChange((event, session) => {

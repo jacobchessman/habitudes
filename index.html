@@ -325,17 +325,10 @@
   .settings .add { margin-top:0; }
 
   /* Ordi: tout le monde d'un coup d'œil */
-  .hero-row { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.2fr); gap:18px; margin-bottom:18px; align-items:stretch; }
-  .hero-row > .card { margin-bottom:0; }
-  .hero-row .group { grid-template-columns:auto 1fr; gap:16px; padding:16px 18px; }
-  .hero-row .pod { justify-content:flex-start; gap:6px; }
-  .hero-row .pod .p { padding:4px 10px 4px 4px; gap:6px; font-size:13px; }
-  .hero-row .pod .p .av.s { width:22px; height:22px; font-size:11px; }
-  .pod .p { white-space:nowrap; }
-  @media (max-width:700px) { .hero-row .group { grid-template-columns:1fr; gap:12px; } }
-  .hero-row .chat { display:flex; flex-direction:column; }
-  .hero-row .chat-list { max-height:150px; flex:1; }
-  @media (max-width:1000px) { .hero-row { grid-template-columns:1fr; } .hero-row .chat-list { max-height:min(320px, 45vh); } }
+  .group { padding:16px 18px; }
+  .group .pod { justify-content:flex-start; gap:6px; }
+  .group .pod .p { padding:4px 10px 4px 4px; gap:6px; font-size:13px; white-space:nowrap; }
+  .group .pod .p .av.s { width:22px; height:22px; font-size:11px; }
   .people { grid-template-columns:repeat(auto-fit, minmax(min(100%, 290px), 1fr)) !important; gap:14px !important; }
   .person { container-type:inline-size; padding:16px; }
   @container (max-width: 400px) {
@@ -359,6 +352,18 @@
     button.sect { padding:8px 0 2px; margin-bottom:4px; }
     .completion-bubble { margin:0 0 10px !important; }
   }
+  /* Bulle de chat */
+  .chat-fab { position:fixed; right:20px; bottom:20px; z-index:40; width:58px; height:58px; border-radius:50%; border:0; cursor:pointer; font-size:26px;
+              background:var(--c0); color:#fff; box-shadow:0 10px 28px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; transition:transform .15s; }
+  .chat-fab:hover { transform:scale(1.06); }
+  .chat-fab.open { font-size:20px; background:var(--card-solid); color:var(--ink); border:1px solid var(--line); }
+  .chat-fab .badge { position:absolute; top:-3px; right:-3px; min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:#e5484d; color:#fff;
+                     font:700 12px/22px Inter, sans-serif; box-shadow:0 0 0 2px var(--bg); animation:pop .35s cubic-bezier(.3,1.6,.5,1); }
+  .chat-panel { position:fixed; right:20px; bottom:90px; z-index:39; width:min(380px, calc(100vw - 24px)); height:min(520px, calc(100dvh - 120px));
+                display:flex; flex-direction:column; margin:0; box-shadow:0 24px 60px rgba(0,0,0,.45); background:var(--card-solid); }
+  .chat-panel .chat-list { flex:1; max-height:none; }
+  @media (max-width:520px) { .chat-panel { right:12px; left:12px; width:auto; bottom:84px; height:calc(100dvh - 110px); } .chat-fab { right:14px; bottom:14px; } }
+  main { padding-bottom:100px; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -479,6 +484,7 @@
 </head>
 <body>
 <main id="app"></main>
+<div id="chat-dock"></div>
 <div id="tip"></div>
 <dialog id="edit-dialog" class="editor" aria-labelledby="editor-title"></dialog>
 <dialog id="note-dialog" class="editor note-editor" aria-labelledby="note-title"></dialog>
@@ -861,7 +867,51 @@ async function onNotifClick() {
   refreshNotif();
 }
 
-// ---------- Chat du groupe ----------
+function bindChat() {
+  const chatForm = document.getElementById('chat-form'), chatInput = document.getElementById('chat-input');
+  if (chatForm) {
+    const grow = () => { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(120, chatInput.scrollHeight) + 'px'; };
+    chatInput.oninput = grow; grow();
+    chatInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); chatForm.requestSubmit(); } };
+    chatForm.onsubmit = async e => {
+      e.preventDefault();
+      const body = chatInput.value.trim();
+      if (!body) return;
+      chatInput.value = ''; grow();
+      const { error } = await sb.from('chat_messages').insert({ body });
+      if (error) { chatInput.value = body; toast('Message pas envoyé. Réessaie.'); }
+      reload(0);
+    };
+  }
+  document.querySelectorAll('#chat-dock [data-chat-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Retirer ce message pour tout le monde?')) return;
+    const { error } = await sb.from('chat_messages').delete().eq('id', b.dataset.chatDel);
+    if (error) toast('Impossible de retirer le message'); reload(0);
+  });
+}
+// ---------- Chat du groupe: bulle en bas à droite, pastille rouge pour les nouveaux messages ----------
+let chatOpen = false;
+const chatSeenKey = () => `habitudes:chat-vu:${me.id}`;
+function chatSeen() { try { return Number(localStorage.getItem(chatSeenKey())) || 0; } catch { return 0; } }
+function markChatSeen() {
+  const last = Math.max(0, ...(data.chat || []).map(m => m.id));
+  try { if (last > chatSeen()) localStorage.setItem(chatSeenKey(), String(last)); } catch {}
+}
+function renderChatDock() {
+  const dock = document.getElementById('chat-dock');
+  if (!dock || !me) return;
+  if (chatOpen) markChatSeen();
+  const seen = chatSeen(), unread = (data.chat || []).filter(m => m.user_id !== me.id && m.id > seen).length;
+  dock.innerHTML = `${chatOpen ? chatCard() : ''}
+    <button class="chat-fab ${chatOpen ? 'open' : ''}" id="chat-fab" aria-label="${chatOpen ? 'Fermer le chat' : 'Ouvrir le chat du groupe'}${unread ? ` (${unread} nouveau${unread > 1 ? 'x' : ''})` : ''}">
+      ${chatOpen ? '✕' : '💬'}${!chatOpen && unread ? `<span class="badge">${unread > 9 ? '9+' : unread}</span>` : ''}</button>`;
+  document.getElementById('chat-fab').onclick = () => {
+    chatOpen = !chatOpen;
+    renderChatDock(); bindChat();
+    if (chatOpen) { const l = document.getElementById('chat-list'); if (l) l.scrollTop = l.scrollHeight; document.getElementById('chat-input')?.focus(); }
+  };
+}
+
 function chatCard() {
   const names = new Map(data.profiles.map(x => [x.id, x.name]));
   const heure = iso => { const d = new Date(iso), today = ymd(new Date()) === ymd(d);
@@ -875,7 +925,7 @@ function chatCard() {
       <div class="mb">${suite ? '' : `<div class="mh"><b>${esc(names.get(m.user_id) || '?')}</b><span>${heure(m.created_at)}</span></div>`}
         <div class="bubble">${esc(m.body)}${mine ? `<button class="msg-x" data-chat-del="${m.id}" aria-label="Retirer mon message" title="Retirer">✕</button>` : ''}</div></div></div>`;
   }).join('');
-  return `<section class="card chat" style="--pc:${colorOf(me.id)}">
+  return `<section class="card chat chat-panel" style="--pc:${colorOf(me.id)}" role="dialog" aria-label="Chat du groupe">
     <h3>💬 Chat du groupe <small>${data.chatReady ? 'en direct' : 'indisponible pour l’instant'}</small></h3>
     <div class="chat-list" id="chat-list">${msgs || '<div class="empty chat-empty">Personne n’a encore écrit. Lance la conversation 👋</div>'}</div>
     <form class="chat-form" id="chat-form"><textarea id="chat-input" rows="1" maxlength="500" placeholder="Écris au groupe… (Entrée pour envoyer)" ${data.chatReady ? '' : 'disabled'}></textarea><button class="btn" type="submit" ${data.chatReady ? '' : 'disabled'}>Envoyer</button></form>
@@ -1305,9 +1355,10 @@ function render() {
   const cl = document.getElementById('chat-list'), ci = document.getElementById('chat-input');
   const chatKeep = { v: ci?.value || '', f: document.activeElement === ci, bottom: !cl || cl.scrollHeight - cl.scrollTop - cl.clientHeight < 40, top: cl?.scrollTop || 0 };
   app.innerHTML = top + deadlineBanner(mineToday.done, mineToday.total) + (personal
-    ? `<div class="personal-layout">${personalIntro}${chatCard()}<div class="people personal">${cards}</div>${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}${extra('feed', '⚡ Activité récente', feed)}</div>`
-    : `<div class="hero-row">${groupSummary}${chatCard()}</div>` + `<div class="people">${cards}</div><div class="duo">${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}</div>` + extra('feed', '⚡ Activité récente', feed));
+    ? `<div class="personal-layout">${personalIntro}<div class="people personal">${cards}</div>${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}${extra('feed', '⚡ Activité récente', feed)}</div>`
+    : groupSummary + `<div class="people">${cards}</div><div class="duo">${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}</div>` + extra('feed', '⚡ Activité récente', feed));
   if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
+  renderChatDock();
   app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
   { const l = document.getElementById('chat-list'), i = document.getElementById('chat-input');
     if (l) l.scrollTop = chatKeep.bottom ? l.scrollHeight : chatKeep.top;
@@ -1349,26 +1400,7 @@ function bind() {
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('gear')?.addEventListener('click', () => openSettings());
   app.querySelectorAll('[data-open-settings]').forEach(b => b.onclick = () => openSettings(b.dataset.openSettings));
-  const chatForm = document.getElementById('chat-form'), chatInput = document.getElementById('chat-input');
-  if (chatForm) {
-    const grow = () => { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(120, chatInput.scrollHeight) + 'px'; };
-    chatInput.oninput = grow; grow();
-    chatInput.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); chatForm.requestSubmit(); } };
-    chatForm.onsubmit = async e => {
-      e.preventDefault();
-      const body = chatInput.value.trim();
-      if (!body) return;
-      chatInput.value = ''; grow();
-      const { error } = await sb.from('chat_messages').insert({ body });
-      if (error) { chatInput.value = body; toast('Message pas envoyé. Réessaie.'); }
-      reload(0);
-    };
-  }
-  app.querySelectorAll('[data-chat-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Retirer ce message pour tout le monde?')) return;
-    const { error } = await sb.from('chat_messages').delete().eq('id', b.dataset.chatDel);
-    if (error) toast('Impossible de retirer le message'); reload(0);
-  });
+  bindChat();
   app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold, b.closest('.person')?.dataset.uid));
   const add = async () => {
     const input = document.getElementById('new'); const name = input.value.trim();

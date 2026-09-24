@@ -1071,8 +1071,9 @@ function render() {
       <div class="hrow">
         <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${frogFor(p.id)?.habit_id === h.id ? '<span class="chip" title="The Frog">🐸</span>' : ''}${mine && M.set.has(h.id+todayKey) ? `<button class="note-button" data-note-h="${h.id}" data-note-day="${todayKey}" aria-label="${noteFor(h.id,todayKey)?'Modifier la note':'Ajouter une note'} : ${esc(h.name)}" title="${noteFor(h.id,todayKey)?'Modifier la note':'Ajouter une note'}">💬</button>` : ''}${mine ? `<button class="habit-action" data-rename="${h.id}" aria-label="Renommer ${esc(h.name)}" title="Renommer">✎</button><button class="del" data-del="${h.id}" aria-label="Retirer ${esc(h.name)}" title="Retirer">✕</button>` : ''}</div>
         ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
-          const open = mine && k === todayKey; // le passé est figé (règle aussi appliquée par la base)
-          return `<button class="box ${on?'on':''} ${k===todayKey?'today':''} ${mine && k < todayKey ? 'locked' : ''}" ${open?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${open ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}${mine && k < todayKey ? ' · 🔒 journée terminée' : ''}"`}>${CHECK}</button>`; }).join('')}
+          const yk = ymd(addDays(new Date(), -1));
+          const open = mine && k >= yk; // aujourd'hui et hier restent modifiables; avant, c'est figé (règle aussi appliquée par la base)
+          return `<button class="box ${on?'on':''} ${k===todayKey?'today':''} ${mine && k < yk ? 'locked' : ''}" ${open?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${open ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}${mine && k < yk ? ' · 🔒 journée terminée' : ''}"`}>${CHECK}</button>`; }).join('')}
       </div>`).join('');
 
     // Calendrier: 20 semaines, colonnes = semaines qui commencent le dimanche
@@ -1212,7 +1213,7 @@ function bind() {
     if (saving) return;
     const habit_id = b.dataset.h, day = b.dataset.d;
     if (!data.habits.some(h => h.id === habit_id && h.user_id === me.id)) return;
-    if (day !== ymd(new Date())) { toast('🔒 Cette journée est terminée'); reload(0); return; }
+    if (day < ymd(addDays(new Date(), -1))) { toast('🔒 Cette journée est terminée'); reload(0); return; } // hier et aujourd'hui seulement
     const on = !model().set.has(habit_id + day);
     const before = model().day(me.id, ymd(new Date()));
     const isFrog = on && frogFor(me.id, day)?.habit_id === habit_id;

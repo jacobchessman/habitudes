@@ -9,125 +9,204 @@
 <link rel="apple-touch-icon" href="icon-512.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Habitudes">
-<meta name="theme-color" content="#111418">
+<meta name="theme-color" content="#0e1116">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#f6f5f2; --card:#fff; --ink:#1b1d21; --ink2:#4a4f57; --mute:#7a7f87; --line:#e4e2dc; --on:#2f9e6b; --accent:#1b1d21;
-    --h0:#ebe9e3; --h1:#c3e6d2; --h2:#86cda8; --h3:#46ad7c; --h4:#237a52; --bar:#2f9e6b; --gold:#c9951a;
+    color-scheme: light;
+    --bg:#f3f2ef; --bg2:#e9e7e2; --card:rgba(255,255,255,.82); --card-solid:#fff; --ink:#15171b; --ink2:#454a53; --mute:#7c818a;
+    --line:rgba(20,22,27,.09); --cell:#e6e4de; --box:#d9d6cf; --shadow:0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
+    --c0:#138a5e; --c1:#5b4bc4; --c2:#d9591f; --c3:#2a78d6; --c4:#c43f72; --c5:#b07400;
+    --glow1:rgba(19,138,94,.16); --glow2:rgba(91,75,196,.12);
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:#111418; --card:#1a1e24; --ink:#eceef1; --ink2:#b9bec6; --mute:#8b929c; --line:#2a3038; --on:#3fbf85; --accent:#eceef1;
-      --h0:#242a32; --h1:#1c4a35; --h2:#25714d; --h3:#319a68; --h4:#4fd494; --bar:#3fbf85; --gold:#e0b44a;
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#0e1116; --bg2:#131820; --card:rgba(24,29,37,.78); --card-solid:#181d25; --ink:#f1f3f6; --ink2:#bcc3cd; --mute:#838c98;
+      --line:rgba(255,255,255,.08); --cell:#222933; --box:#343c48; --shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 12px 32px rgba(0,0,0,.35);
+      --c0:#1faf7a; --c1:#9085e9; --c2:#e0692f; --c3:#3987e5; --c4:#d55181; --c5:#c98500;
+      --glow1:rgba(31,175,122,.18); --glow2:rgba(144,133,233,.14);
     }
   }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
-  main { max-width:820px; margin:0 auto; padding:20px 16px 60px; }
-  header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
-  h1 { font-size:22px; margin:0; }
-  h2 { font-size:16px; margin:0 0 10px; display:flex; gap:8px; align-items:baseline; flex-wrap:wrap; }
-  h2 small, h3 small { color:var(--mute); font-weight:400; }
-  h3 { font-size:14px; margin:0 0 10px; color:var(--ink2); font-weight:600; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
-  .me { border-color:var(--on); }
-  .tabs { display:flex; gap:4px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:3px; margin-bottom:14px; width:max-content; }
-  .tabs button { border:0; background:none; color:var(--mute); padding:7px 16px; border-radius:9px; cursor:pointer; font:inherit; }
-  .tabs button.sel { background:var(--accent); color:var(--bg); }
-  .chips { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
-  .chip { border:1px solid var(--line); background:var(--card); color:var(--ink2); padding:5px 12px; border-radius:999px; cursor:pointer; font:inherit; font-size:13px; }
-  .chip.sel { border-color:var(--ink); color:var(--ink); font-weight:600; }
+  html { -webkit-text-size-adjust:100%; }
+  body {
+    margin:0; color:var(--ink); font:15px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(900px 500px at 10% -10%, var(--glow1), transparent 60%),
+      radial-gradient(800px 480px at 95% 0%, var(--glow2), transparent 60%),
+      var(--bg);
+    background-attachment:fixed; min-height:100vh;
+  }
+  main { max-width:1120px; margin:0 auto; padding:28px 16px 80px; }
+  .num { font-family:"Space Grotesk", Inter, sans-serif; font-variant-numeric:tabular-nums; letter-spacing:-.02em; }
+  button, input { font:inherit; color:inherit; }
 
-  table.grid { width:100%; border-collapse:collapse; table-layout:fixed; }
-  table.grid col.n { width:38%; }
-  th { font-weight:500; color:var(--mute); font-size:12px; text-align:center; padding:0 2px 6px; }
-  th:first-child { text-align:left; }
-  td { padding:4px 2px; text-align:center; border-top:1px solid var(--line); }
-  td.name { text-align:left; word-break:break-word; }
-  .streak { color:var(--mute); font-size:12px; margin-left:4px; white-space:nowrap; }
-  .box { width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:transparent; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:16px; padding:0; }
-  .box.on { background:var(--on); border-color:var(--on); }
+  /* En-tête */
+  .top { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:22px; }
+  .date { color:var(--mute); font-size:13px; text-transform:capitalize; letter-spacing:.02em; }
+  h1 { font-family:"Space Grotesk", Inter, sans-serif; font-size:40px; line-height:1.05; margin:4px 0 6px; letter-spacing:-.03em; }
+  .tag { color:var(--ink2); font-size:14px; }
+  .meta { display:flex; gap:14px; align-items:center; font-size:13px; color:var(--mute); }
+  .live::before { content:""; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--mute); margin-right:6px; vertical-align:1px; }
+  .live.ok::before { background:var(--c0); box-shadow:0 0 0 0 var(--c0); animation:pulse 2s infinite; }
+  @keyframes pulse { 0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--c0) 60%, transparent); } 70% { box-shadow:0 0 0 7px transparent; } 100% { box-shadow:0 0 0 0 transparent; } }
+  .link { background:none; border:0; color:var(--mute); cursor:pointer; text-decoration:underline; text-underline-offset:3px; padding:0; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:20px; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+
+  /* Bandeau du groupe */
+  .group { display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center; margin-bottom:18px; }
+  .group .big { display:flex; align-items:center; gap:16px; }
+  .group .k { font-size:12px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+  .group .v { font-size:34px; font-weight:700; line-height:1; margin-top:4px; }
+  .group .v small { font-size:16px; color:var(--mute); font-weight:500; }
+  .pod { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
+  .pod .p { display:flex; align-items:center; gap:10px; padding:8px 14px 8px 8px; border-radius:999px; background:color-mix(in srgb, var(--pc) 12%, transparent); border:1px solid color-mix(in srgb, var(--pc) 30%, transparent); }
+  .pod .p b { font-weight:600; }
+  .pod .p span { color:var(--ink2); font-size:13px; }
+  @media (max-width:700px) { .group { grid-template-columns:1fr; } .pod { justify-content:flex-start; } }
+
+  .av { width:40px; height:40px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; flex:none;
+        background:linear-gradient(135deg, color-mix(in srgb, var(--pc) 85%, white), var(--pc)); color:#fff; font-weight:700; font-family:"Space Grotesk", sans-serif; font-size:17px;
+        box-shadow:0 4px 14px color-mix(in srgb, var(--pc) 40%, transparent); }
+  .av.s { width:28px; height:28px; font-size:13px; box-shadow:none; }
+
+  /* Anneau */
+  .ring { position:relative; flex:none; }
+  .ring svg { display:block; transform:rotate(-90deg); }
+  .ring .bg { stroke:var(--cell); }
+  .ring .fg { stroke:var(--pc, var(--c0)); stroke-linecap:round; transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.2,1); filter:drop-shadow(0 0 6px color-mix(in srgb, var(--pc, var(--c0)) 45%, transparent)); }
+  .ring .in { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; line-height:1; }
+  .ring .in b { font-size:17px; font-weight:700; }
+  .ring .in span { font-size:10px; color:var(--mute); margin-top:3px; }
+
+  /* Cartes personnes */
+  .people { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap:18px; margin-bottom:18px; align-items:start; }
+  .person { position:relative; overflow:hidden; }
+  .person::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:linear-gradient(90deg, var(--pc), color-mix(in srgb, var(--pc) 20%, transparent)); }
+  .person.me { border-color:color-mix(in srgb, var(--pc) 35%, var(--line)); }
+  .ph { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .ph .who { flex:1; min-width:0; }
+  .ph h2 { font-family:"Space Grotesk", Inter, sans-serif; font-size:21px; margin:0; letter-spacing:-.02em; display:flex; align-items:baseline; gap:8px; }
+  .ph h2 small { font-family:Inter, sans-serif; font-size:12px; color:var(--mute); font-weight:500; }
+  .ph .sub { font-size:13px; color:var(--ink2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:18px; }
+  .kpi { background:color-mix(in srgb, var(--pc) 7%, transparent); border:1px solid color-mix(in srgb, var(--pc) 16%, transparent); border-radius:14px; padding:10px 10px 9px; min-width:0; }
+  .kpi .k { font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kpi .v { font-size:24px; font-weight:700; line-height:1.1; margin-top:3px; white-space:nowrap; }
+  .kpi .v small { font-size:13px; font-weight:500; color:var(--mute); }
+  .kpi .t { font-size:11px; margin-top:1px; color:var(--mute); white-space:nowrap; }
+  .kpi .t.up { color:var(--c0); } .kpi .t.down { color:var(--c2); }
+  @media (max-width:420px) { .kpis { grid-template-columns:repeat(2, 1fr); } }
+
+  .sect { font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin:0 0 8px; display:flex; justify-content:space-between; }
+  .habits { --bx:30px; margin-bottom:18px; }
+  .hrow { display:grid; grid-template-columns:minmax(0,1fr) repeat(7, var(--bx)); gap:5px; align-items:center; padding:5px 0; }
+  .hrow + .hrow { border-top:1px solid var(--line); }
+  .hrow.head { padding:0 0 4px; }
+  .hrow.head span { font-size:11px; color:var(--mute); text-align:center; line-height:1.15; }
+  .hrow.head span.today { color:var(--ink); font-weight:700; }
+  .hname { min-width:0; display:flex; align-items:center; gap:6px; }
+  .hname .n { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  .chip { font-size:11px; padding:1px 7px; border-radius:999px; white-space:nowrap; background:color-mix(in srgb, var(--pc) 14%, transparent); color:color-mix(in srgb, var(--pc) 70%, var(--ink)); font-weight:600; }
+  .chip.hot { background:linear-gradient(90deg, #ff9a3c, #ff5e62); color:#fff; }
+  .del { background:none; border:0; color:var(--mute); cursor:pointer; font-size:12px; padding:2px 4px; opacity:0; transition:opacity .15s; }
+  .hrow:hover .del, .del:focus { opacity:1; }
+  @media (hover:none) { .del { opacity:.6; } }
+  .box { width:var(--bx); height:var(--bx); border-radius:9px; border:1.5px solid var(--box); background:transparent; display:inline-flex; align-items:center; justify-content:center; color:#fff; padding:0; transition:transform .12s, background .15s, border-color .15s; }
+  .box svg { width:15px; height:15px; opacity:0; transform:scale(.4); transition:all .18s; }
+  .box.on { background:var(--pc); border-color:var(--pc); box-shadow:0 2px 10px color-mix(in srgb, var(--pc) 40%, transparent); }
+  .box.on svg { opacity:1; transform:scale(1); }
   .box:not([disabled]) { cursor:pointer; }
-  .today { color:var(--ink); font-weight:700; }
-  .prog { height:4px; background:var(--h0); border-radius:2px; overflow:hidden; margin:-4px 0 10px; }
-  .prog > i { display:block; height:100%; background:var(--on); border-radius:2px; transition:width .3s; }
+  .box:not([disabled]):hover { border-color:var(--pc); transform:translateY(-1px); }
+  .box:not([disabled]):active { transform:scale(.9); }
+  .box.pop { animation:pop .35s cubic-bezier(.3,1.6,.5,1); }
+  @keyframes pop { 0% { transform:scale(.7); } 100% { transform:scale(1); } }
+  .box.today:not(.on) { border-style:dashed; }
+  @media (max-width:520px) {
+    .habits { --bx:clamp(26px, 9vw, 32px); }
+    .hrow:not(.head) { grid-template-columns:repeat(7, var(--bx)); justify-content:space-between; row-gap:6px; }
+    .hrow:not(.head) .hname { grid-column:1 / -1; }
+    .hrow.head { grid-template-columns:repeat(7, var(--bx)); justify-content:space-between; }
+    .hrow.head > :first-child { display:none; }
+  }
+  .add { display:flex; gap:8px; margin-top:10px; }
+  .add input { flex:1; min-width:0; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:color-mix(in srgb, var(--card-solid) 70%, transparent); }
+  .add input:focus { outline:2px solid color-mix(in srgb, var(--pc) 50%, transparent); outline-offset:1px; }
+  .btn { padding:10px 16px; border-radius:12px; border:0; background:var(--pc, var(--ink)); color:#fff; cursor:pointer; font-weight:600; white-space:nowrap; }
+  .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
-  input, button { font:inherit; }
-  input[type=text], input[type=email], input[type=password] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
-  .btn { padding:10px 14px; border-radius:10px; border:0; background:var(--accent); color:var(--bg); cursor:pointer; white-space:nowrap; }
-  .link { background:none; border:0; color:var(--mute); cursor:pointer; text-decoration:underline; padding:0; }
-  .del { background:none; border:0; color:var(--mute); cursor:pointer; font-size:13px; padding:0 4px; }
-  .row { display:flex; gap:8px; margin-top:10px; }
-  .stack > * + * { margin-top:10px; }
-  .auth { max-width:360px; margin:10vh auto 0; }
-  .err { color:#d24; min-height:1.2em; font-size:13px; }
-  .empty { color:var(--mute); font-size:13px; padding:6px 0; }
-  .live { font-size:12px; color:var(--mute); }
-  .live::before { content:"●"; margin-right:4px; color:var(--mute); }
-  .live.ok::before { color:var(--on); }
-
-  /* Stats */
-  .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:14px; }
-  .tile { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; }
-  .tile .k { font-size:12px; color:var(--mute); }
-  .tile .v { font-size:28px; font-weight:700; letter-spacing:-.5px; line-height:1.15; margin-top:2px; font-variant-numeric:tabular-nums; }
-  .tile .s { font-size:12px; color:var(--ink2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .two { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-  .two > .card { margin-bottom:0; }
-  @media (max-width:640px) { .two { grid-template-columns:1fr; } }
-  .mb { margin-bottom:14px; }
-
-  .heat-wrap { overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
-  .heat { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 12px); gap:3px; width:max-content; }
-  .heat i { width:12px; height:12px; border-radius:3px; background:var(--h0); display:block; }
-  .heat i.l1 { background:var(--h1); } .heat i.l2 { background:var(--h2); } .heat i.l3 { background:var(--h3); } .heat i.l4 { background:var(--h4); }
+  /* Calendrier */
+  .heat-wrap { overflow-x:auto; scrollbar-width:none; margin-bottom:6px; }
+  .heat-wrap::-webkit-scrollbar { display:none; }
+  .heat { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 11px); gap:3px; width:max-content; }
+  .heat i { width:11px; height:11px; border-radius:3px; background:var(--cell); display:block; }
+  .heat i.l1 { background:color-mix(in srgb, var(--pc) 30%, var(--cell)); }
+  .heat i.l2 { background:color-mix(in srgb, var(--pc) 55%, var(--cell)); }
+  .heat i.l3 { background:color-mix(in srgb, var(--pc) 78%, var(--cell)); }
+  .heat i.l4 { background:var(--pc); box-shadow:0 0 6px color-mix(in srgb, var(--pc) 45%, transparent); }
   .heat i.fut { background:transparent; }
   .heat i.t { outline:1.5px solid var(--ink); outline-offset:1px; }
-  .heat-months { display:grid; grid-auto-flow:column; grid-auto-columns:12px; gap:3px; font-size:11px; color:var(--mute); height:16px; width:max-content; }
-  .heat-months span { white-space:nowrap; overflow:visible; }
-  .heat-legend { display:flex; align-items:center; gap:3px; justify-content:flex-end; font-size:11px; color:var(--mute); margin-top:8px; }
-  .heat-legend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
+  .heat-months { display:grid; grid-auto-flow:column; grid-auto-columns:11px; gap:3px; font-size:10px; color:var(--mute); height:15px; width:max-content; }
+  .heat-months span { white-space:nowrap; }
+  .heat-foot { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--mute); margin-bottom:16px; gap:10px; flex-wrap:wrap; }
+  .legend { display:flex; align-items:center; gap:3px; }
+  .legend i { width:10px; height:10px; border-radius:2px; display:inline-block; }
 
-  table.hs { width:100%; border-collapse:collapse; font-size:14px; }
-  table.hs th { text-align:right; font-size:12px; }
-  table.hs th:first-child { text-align:left; }
-  table.hs td { text-align:right; font-variant-numeric:tabular-nums; padding:7px 2px; }
-  table.hs td:first-child { text-align:left; }
-  .spark { display:inline-flex; gap:2px; vertical-align:middle; }
-  .spark i { width:5px; height:14px; border-radius:1.5px; background:var(--h0); display:block; }
-  .spark i.on { background:var(--bar); }
-  @media (max-width:560px) { .hide-sm { display:none; } }
+  .badges { display:flex; flex-wrap:wrap; gap:6px; }
+  .bdg { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:18px; background:color-mix(in srgb, var(--pc) 12%, transparent); border:1px solid color-mix(in srgb, var(--pc) 25%, transparent); cursor:default; }
+  .bdg.off { filter:grayscale(1); opacity:.28; background:transparent; border-style:dashed; border-color:var(--line); }
 
-  .dow { display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; align-items:end; height:120px; }
-  .dow .c { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
-  .dow .b { width:100%; max-width:28px; background:var(--bar); border-radius:4px 4px 0 0; min-height:2px; opacity:.55; }
-  .dow .b.best { opacity:1; }
+  /* Bas de page */
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
+  @media (max-width:820px) { .duo { grid-template-columns:1fr; } }
+  h3 { font-family:"Space Grotesk", Inter, sans-serif; font-size:17px; margin:0 0 14px; letter-spacing:-.01em; display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  h3 small { font-family:Inter, sans-serif; font-size:12px; color:var(--mute); font-weight:500; }
+
+  .lb { display:flex; flex-direction:column; gap:12px; }
+  .lb .r { display:grid; grid-template-columns:26px 28px minmax(60px, 110px) 1fr 48px; gap:10px; align-items:center; }
+  .lb .medal { font-size:18px; text-align:center; }
+  .lb .rank { color:var(--mute); text-align:center; font-weight:600; }
+  .lb .nm { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lb .track { height:12px; border-radius:6px; background:var(--cell); overflow:hidden; }
+  .lb .track i { display:block; height:100%; border-radius:6px; background:linear-gradient(90deg, color-mix(in srgb, var(--pc) 60%, transparent), var(--pc)); transition:width .6s cubic-bezier(.2,.8,.2,1); }
+  .lb .pct { text-align:right; font-weight:700; }
+
+  .dow { display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; height:150px; align-items:end; }
+  .dow .c { display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end; }
+  .dow .bars { display:flex; gap:2px; align-items:flex-end; height:120px; width:100%; justify-content:center; }
+  .dow .bars i { flex:1; max-width:14px; border-radius:4px 4px 0 0; background:var(--pc); min-height:2px; display:block; }
   .dow .lab { font-size:11px; color:var(--mute); }
-  .dow .val { font-size:11px; color:var(--ink2); font-variant-numeric:tabular-nums; }
-  .note { font-size:13px; color:var(--ink2); margin-top:10px; }
-
-  .lb { display:flex; flex-direction:column; gap:10px; }
-  .lb .r { display:grid; grid-template-columns:24px minmax(70px, 120px) 1fr 44px; align-items:center; gap:8px; font-size:14px; }
-  .lb .medal { text-align:center; }
-  .lb .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .lb .track { height:10px; background:var(--h0); border-radius:5px; overflow:hidden; }
-  .lb .track i { display:block; height:100%; background:var(--bar); border-radius:5px; }
-  .lb .pct { text-align:right; font-variant-numeric:tabular-nums; color:var(--ink2); }
-  .lb .r.me .nm { font-weight:700; }
-
-  .badges { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; }
-  .badge { border:1px solid var(--line); border-radius:12px; padding:10px 6px; text-align:center; }
-  .badge .e { font-size:26px; line-height:1; }
-  .badge .t { font-size:12px; margin-top:6px; font-weight:600; }
-  .badge .d { font-size:11px; color:var(--mute); margin-top:2px; }
-  .badge.off { opacity:.35; filter:grayscale(1); }
+  .keys { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--ink2); margin-top:12px; }
+  .keys span::before { content:""; display:inline-block; width:10px; height:10px; border-radius:3px; background:var(--pc); margin-right:6px; vertical-align:-1px; }
+  .insight { font-size:13px; color:var(--ink2); margin-top:10px; line-height:1.5; }
 
   .feed { list-style:none; margin:0; padding:0; }
-  .feed li { display:flex; gap:10px; align-items:baseline; padding:7px 0; border-top:1px solid var(--line); font-size:14px; }
-  .feed li:first-child { border-top:0; }
-  .feed .when { margin-left:auto; color:var(--mute); font-size:12px; white-space:nowrap; }
+  .feed li { display:flex; gap:12px; align-items:center; padding:9px 0; }
+  .feed li + li { border-top:1px solid var(--line); }
+  .feed .txt { flex:1; min-width:0; font-size:14px; }
+  .feed .txt b { font-weight:600; }
+  .feed .when { color:var(--mute); font-size:12px; white-space:nowrap; }
+  .feed .late { color:var(--mute); font-size:12px; }
 
-  #tip { position:fixed; pointer-events:none; background:var(--ink); color:var(--bg); font-size:12px; padding:5px 8px; border-radius:6px; white-space:nowrap; z-index:10; display:none; }
+  /* Connexion */
+  .auth { max-width:380px; margin:12vh auto 0; }
+  .auth h1 { margin-bottom:4px; }
+  .auth .f { display:flex; flex-direction:column; gap:10px; margin-top:18px; }
+  .auth input { padding:12px 14px; border-radius:12px; border:1px solid var(--line); background:color-mix(in srgb, var(--card-solid) 70%, transparent); }
+  .auth .btn { --pc:var(--c0); width:100%; padding:12px; }
+  .err { color:#e5484d; min-height:1.2em; font-size:13px; }
+
+  #tip { position:fixed; pointer-events:none; background:var(--ink); color:var(--bg); font-size:12px; padding:6px 9px; border-radius:8px; white-space:nowrap; z-index:20; display:none; box-shadow:0 6px 20px rgba(0,0,0,.25); }
+  .confetti { position:fixed; top:-10px; width:8px; height:12px; border-radius:2px; z-index:30; pointer-events:none; animation:fall linear forwards; }
+  @keyframes fall { to { transform:translate(var(--dx), 105vh) rotate(var(--rot)); opacity:.9; } }
+  .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:600; z-index:31; box-shadow:0 10px 30px rgba(0,0,0,.3); animation:toast 2.6s ease forwards; }
+  @keyframes toast { 0% { opacity:0; transform:translate(-50%, 10px); } 10%, 85% { opacity:1; transform:translate(-50%, 0); } 100% { opacity:0; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
@@ -140,18 +219,16 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
 let me = null, data = { profiles: [], habits: [], checks: [] }, channel = null, live = false;
-const pref = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } };
-let tab = pref('tab') || 'today', who = pref('who') || null;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-function lastDays(n) { const out = []; for (let i = n - 1; i >= 0; i--) out.push(addDays(new Date(), -i)); return out; }
+const lastDays = n => Array.from({ length: n }, (_, i) => addDays(new Date(), i - n + 1));
 const JOURS = ['dim','lun','mar','mer','jeu','ven','sam'];
 const JOURS_LONG = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 const MOIS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 const pct = x => Math.round(x * 100) + ' %';
-const plural = (n, s) => `${n} ${s}${n > 1 ? 's' : ''}`;
+const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>';
 function ago(iso) {
   const s = (Date.now() - new Date(iso)) / 1000;
   if (s < 60) return "à l'instant";
@@ -163,15 +240,18 @@ function ago(iso) {
 // ---------- Connexion ----------
 function renderAuth(mode = 'in', msg = '') {
   app.innerHTML = `
-    <div class="auth card stack">
+    <div class="auth card">
+      <div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div>
       <h1>Habitudes</h1>
-      <div class="live">On se tient accountable.</div>
-      ${mode === 'up' ? '<input id="name" type="text" placeholder="Ton prénom" autocomplete="given-name">' : ''}
-      <input id="email" type="email" placeholder="Courriel" autocomplete="email">
-      <input id="pw" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="${mode==='up'?'new-password':'current-password'}">
-      <button class="btn" id="go" style="width:100%">${mode === 'up' ? 'Créer mon compte' : 'Se connecter'}</button>
-      <div class="err" id="err">${esc(msg)}</div>
-      <button class="link" id="switch">${mode === 'up' ? "J'ai déjà un compte" : 'Première fois? Créer un compte'}</button>
+      <div class="tag">On se tient accountable.</div>
+      <div class="f">
+        ${mode === 'up' ? '<input id="name" type="text" placeholder="Ton prénom" autocomplete="given-name">' : ''}
+        <input id="email" type="email" placeholder="Courriel" autocomplete="email">
+        <input id="pw" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="${mode==='up'?'new-password':'current-password'}">
+        <button class="btn" id="go">${mode === 'up' ? 'Créer mon compte' : 'Se connecter'}</button>
+        <div class="err" id="err">${esc(msg)}</div>
+        <button class="link" id="switch">${mode === 'up' ? "J'ai déjà un compte" : 'Première fois? Créer un compte'}</button>
+      </div>
     </div>`;
   document.getElementById('switch').onclick = () => renderAuth(mode === 'up' ? 'in' : 'up');
   const go = async () => {
@@ -204,11 +284,12 @@ async function load() {
   render();
 }
 
+let pendingReload = null;
+const reload = (ms = 150) => { clearTimeout(pendingReload); pendingReload = setTimeout(load, ms); };
 function subscribe() {
   if (channel) sb.removeChannel(channel);
-  let t = null;
   channel = sb.channel('tout')
-    .on('postgres_changes', { event: '*', schema: 'public' }, () => { clearTimeout(t); t = setTimeout(load, 150); })
+    .on('postgres_changes', { event: '*', schema: 'public' }, () => reload(250))
     .subscribe(status => { live = status === 'SUBSCRIBED'; const el = document.querySelector('.live'); if (el) el.classList.toggle('ok', live); });
 }
 
@@ -234,19 +315,16 @@ function model() {
   function best(h) {
     const days = [...(byHabit.get(h.id) || [])].sort();
     let b = 0, run = 0, prev = null;
-    for (const k of days) {
-      run = prev && ymd(addDays(new Date(prev + 'T12:00'), 1)) === k ? run + 1 : 1;
-      b = Math.max(b, run); prev = k;
-    }
+    for (const k of days) { run = prev && ymd(addDays(new Date(prev + 'T12:00'), 1)) === k ? run + 1 : 1; b = Math.max(b, run); prev = k; }
     return b;
   }
-  function rate(uid, n, ofHabit) {
+  function rateRange(uid, from, to, only) { // jours de from à to en arrière (0 = aujourd'hui)
     let done = 0, total = 0;
-    for (const d of lastDays(n)) {
-      const k = ymd(d);
-      for (const h of ofHabit ? [ofHabit] : habitsOf(uid)) if (active(h, k)) { total++; if (set.has(h.id + k)) done++; }
+    for (let i = from; i < to; i++) {
+      const k = ymd(addDays(new Date(), -i));
+      for (const h of only ? [only] : habitsOf(uid)) if (active(h, k)) { total++; if (set.has(h.id + k)) done++; }
     }
-    return total ? done / total : 0;
+    return total ? done / total : null;
   }
   const perfect = (uid, k) => { const s = day(uid, k); return s.total > 0 && s.done === s.total; };
   function perfectStreak(uid) {
@@ -260,22 +338,26 @@ function model() {
     for (const d of lastDays(400)) { run = perfect(uid, ymd(d)) ? run + 1 : 0; b = Math.max(b, run); }
     return b;
   }
-  return { set, habitsOf, day, streak, best, rate, perfect, perfectStreak, bestPerfectRun, active };
+  function weekday(uid) {
+    const w = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
+    for (const d of lastDays(84)) { const s = day(uid, ymd(d)); w[d.getDay()].done += s.done; w[d.getDay()].total += s.total; }
+    return w.map(x => x.total ? x.done / x.total : null);
+  }
+  return { set, habitsOf, day, streak, best, rateRange, perfect, perfectStreak, bestPerfectRun, weekday };
 }
 
 function badgesFor(uid, M) {
   const habits = M.habitsOf(uid);
   const mine = data.checks.filter(c => c.user_id === uid);
   const bestAny = Math.max(0, ...habits.map(M.best));
-  const perfectDays = lastDays(400).filter(d => M.perfect(uid, ymd(d))).length;
   const hour = c => c.created_at && c.day === ymd(new Date(c.created_at)) ? new Date(c.created_at).getHours() : null;
   return [
     { e:'🌱', t:'Premier pas', d:'1er coché', ok: mine.length >= 1 },
     { e:'🔥', t:'En feu', d:'3 jours de suite', ok: bestAny >= 3 },
     { e:'⚡', t:'Une semaine', d:'7 jours de suite', ok: bestAny >= 7 },
     { e:'🏔️', t:'Un mois', d:'30 jours de suite', ok: bestAny >= 30 },
-    { e:'✨', t:'Journée parfaite', d:'tout coché en 1 jour', ok: perfectDays >= 1 },
-    { e:'🏆', t:'Semaine parfaite', d:'7 journées parfaites', ok: M.bestPerfectRun(uid) >= 7 },
+    { e:'✨', t:'Journée parfaite', d:'tout coché en une journée', ok: lastDays(400).some(d => M.perfect(uid, ymd(d))) },
+    { e:'🏆', t:'Semaine parfaite', d:'7 journées parfaites de suite', ok: M.bestPerfectRun(uid) >= 7 },
     { e:'💯', t:'Centurion', d:'100 cochés', ok: mine.length >= 100 },
     { e:'🌅', t:'Lève-tôt', d:'coché avant 7 h', ok: mine.some(c => { const h = hour(c); return h !== null && h < 7; }) },
     { e:'🦉', t:'Oiseau de nuit', d:'coché après 23 h', ok: mine.some(c => { const h = hour(c); return h !== null && h >= 23; }) },
@@ -283,196 +365,203 @@ function badgesFor(uid, M) {
   ];
 }
 
-// ---------- Écran principal ----------
-function render() {
-  const header = `
-    <header><h1>Habitudes</h1><div style="display:flex;gap:14px;align-items:center"><span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div></header>
-    <nav class="tabs"><button data-tab="today" class="${tab==='today'?'sel':''}">Aujourd'hui</button><button data-tab="stats" class="${tab==='stats'?'sel':''}">Stats</button></nav>`;
-  app.innerHTML = header + (tab === 'stats' ? renderStats() : renderToday());
-  document.getElementById('out').onclick = () => sb.auth.signOut();
-  app.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; pref('tab', tab); render(); });
-  if (tab === 'stats') bindStats(); else bindToday();
-}
-
+// La couleur suit la personne (ordre stable par id), jamais son rang.
+const colorOf = uid => { const ids = data.profiles.map(p => p.id).sort(); return `var(--c${Math.max(0, ids.indexOf(uid)) % 6})`; };
+const initial = name => esc((name || '?').trim().charAt(0).toUpperCase());
 const people = () => [...data.profiles].sort((a, b) => (b.id === me.id) - (a.id === me.id) || a.name.localeCompare(b.name));
 
-function renderToday() {
-  const M = model();
-  const days = lastDays(7);
-  const todayKey = ymd(new Date());
-  const head = `<colgroup><col class="n">${days.map(() => '<col>').join('')}</colgroup><tr><th></th>${days.map(d => `<th class="${ymd(d)===todayKey?'today':''}">${JOURS[d.getDay()]}<br>${d.getDate()}</th>`).join('')}</tr>`;
-  return people().map(p => {
-    const mine = p.id === me.id;
-    const habits = M.habitsOf(p.id);
-    const t = M.day(p.id, todayKey);
-    const rows = habits.map(h => { const s = M.streak(h); return `
-      <tr>
-        <td class="name">${esc(h.name)}${s ? `<span class="streak">🔥${s}</span>` : ''}
-          ${mine ? `<button class="del" data-del="${h.id}" title="Retirer">✕</button>` : ''}</td>
-        ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
-          return `<td><button class="box ${on?'on':''}" ${mine?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}">${on?'✓':''}</button></td>`; }).join('')}
-      </tr>`; }).join('');
-    return `
-      <section class="card ${mine?'me':''}">
-        <h2>${esc(p.name)}${mine ? ' <small>(toi)</small>' : ''} <small>${t.total ? `${t.done}/${t.total} aujourd'hui${t.done === t.total ? ' ✨' : ''}` : ''}</small></h2>
-        ${t.total ? `<div class="prog"><i style="width:${t.done / t.total * 100}%"></i></div>` : ''}
-        ${habits.length ? `<table class="grid">${head}${rows}</table>` : `<div class="empty">Aucune habitude encore.</div>`}
-        ${mine ? `<div class="row"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
-      </section>`;
-  }).join('');
+function ring(done, total, size = 64, stroke = 7) {
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r, f = total ? done / total : 0;
+  return `<div class="ring" style="width:${size}px;height:${size}px">
+    <svg width="${size}" height="${size}"><circle class="bg" cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke-width="${stroke}"/>
+    <circle class="fg" cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke-width="${stroke}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - f)}"/></svg>
+    <div class="in"><b class="num">${total ? `${done}/${total}` : '—'}</b><span>auj.</span></div></div>`;
 }
 
-function bindToday() {
+// ---------- Rendu ----------
+function render() {
+  const M = model();
+  const ps = people();
+  const todayKey = ymd(new Date());
+
+  // Groupe
+  let gd = 0, gt = 0; for (const p of ps) { const s = M.day(p.id, todayKey); gd += s.done; gt += s.total; }
+  const board = ps.map(p => ({ p, r: M.rateRange(p.id, 0, 7) })).filter(o => o.r !== null).sort((a, b) => b.r - a.r);
+  const medals = ['🥇', '🥈', '🥉'];
+  const top = `
+    <div class="top">
+      <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1><div class="tag">On se tient accountable.</div></div>
+      <div class="meta"><span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div>
+    </div>
+    <section class="card group">
+      <div class="big">${ring(gd, gt, 76, 8)}<div><div class="k">Le groupe aujourd'hui</div><div class="v num">${gt ? Math.round(gd / gt * 100) : 0}<small> %</small></div><div class="tag" style="font-size:13px">${gd} coché${gd > 1 ? 's' : ''} sur ${gt}</div></div></div>
+      <div class="pod">${board.slice(0, 3).map((o, i) => `<div class="p" style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} sur 7 jours"><span class="av s">${initial(o.p.name)}</span><b>${medals[i]} ${esc(o.p.name)}</b><span class="num">${pct(o.r)}</span></div>`).join('')}</div>
+    </section>`;
+
+  // Une carte par personne
+  const days = lastDays(7);
+  const cards = ps.map(p => {
+    const mine = p.id === me.id, pc = colorOf(p.id);
+    const habits = M.habitsOf(p.id);
+    const t = M.day(p.id, todayKey);
+    const streaks = habits.map(h => ({ h, s: M.streak(h), b: M.best(h) }));
+    const cur = [...streaks].sort((a, b) => b.s - a.s)[0];
+    const rec = [...streaks].sort((a, b) => b.b - a.b)[0];
+    const r30 = M.rateRange(p.id, 0, 30), rPrev = M.rateRange(p.id, 30, 60);
+    const diff = r30 !== null && rPrev !== null ? Math.round((r30 - rPrev) * 100) : null;
+    const perf30 = lastDays(30).filter(d => M.perfect(p.id, ymd(d))).length;
+    const ps_ = M.perfectStreak(p.id);
+    const wd = M.weekday(p.id); const known = [1,2,3,4,5,6,0].filter(i => wd[i] !== null && wd[i] > 0);
+    const bestD = known.length ? known.reduce((a, b) => wd[b] > wd[a] ? b : a) : null;
+    const sub = !habits.length ? 'Pas encore d’habitude' :
+      t.total && t.done === t.total ? 'Journée parfaite ✨' :
+      ps_ >= 2 ? `${ps_} journées parfaites de suite 🔥` :
+      bestD !== null ? `Meilleur jour: ${JOURS_LONG[bestD]}` : `${habits.length} habitude${habits.length > 1 ? 's' : ''}`;
+
+    const head = `<div class="hrow head"><span></span>${days.map(d => `<span class="${ymd(d)===todayKey?'today':''}">${JOURS[d.getDay()]}<br>${d.getDate()}</span>`).join('')}</div>`;
+    const rows = streaks.map(({ h, s }) => `
+      <div class="hrow">
+        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${mine ? `<button class="del" data-del="${h.id}" title="Retirer">✕</button>` : ''}</div>
+        ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
+          return `<button class="box ${on?'on':''} ${k===todayKey?'today':''}" ${mine?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${mine ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}"`}>${CHECK}</button>`; }).join('')}
+      </div>`).join('');
+
+    // Calendrier: 20 semaines, colonnes = semaines qui commencent le dimanche
+    const weeks = 20, end = new Date(), start = addDays(end, -(weeks - 1) * 7 - end.getDay());
+    let cells = '', months = '';
+    for (let w = 0; w < weeks; w++) {
+      const first = [0,1,2,3,4,5,6].map(i => addDays(start, w * 7 + i)).find(x => x.getDate() === 1);
+      months += `<span>${first && w < weeks - 1 ? MOIS[first.getMonth()] : ''}</span>`;
+      for (let i = 0; i < 7; i++) {
+        const dd = addDays(start, w * 7 + i), k = ymd(dd);
+        if (k > todayKey) { cells += '<i class="fut"></i>'; continue; }
+        const s = M.day(p.id, k), r = s.total ? s.done / s.total : 0;
+        const lvl = !s.done ? 0 : r >= 1 ? 4 : r >= .66 ? 3 : r >= .33 ? 2 : 1;
+        cells += `<i class="l${lvl}${k===todayKey?' t':''}" data-tip="${JOURS[dd.getDay()]} ${dd.getDate()} ${MOIS[dd.getMonth()]} · ${s.total ? `${s.done}/${s.total}` : 'rien à cocher'}"></i>`;
+      }
+    }
+    const bs = badgesFor(p.id, M);
+
+    return `
+      <section class="card person ${mine?'me':''}" style="--pc:${pc}">
+        <div class="ph">
+          <span class="av">${initial(p.name)}</span>
+          <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
+          ${ring(t.done, t.total)}
+        </div>
+        <div class="kpis">
+          <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
+          <div class="kpi" data-tip="${rec && rec.b ? `Plus longue série: ${esc(rec.h.name)}` : 'Aucune série encore'}"><div class="k">Record</div><div class="v num">${rec ? rec.b : 0}<small> j</small></div><div class="t">${rec && rec.b ? esc(rec.h.name) : '—'}</div></div>
+          <div class="kpi" data-tip="Part des habitudes cochées sur 30 jours"><div class="k">Réussite 30 j</div><div class="v num">${r30 === null ? '—' : Math.round(r30 * 100)}<small>${r30 === null ? '' : ' %'}</small></div><div class="t ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${diff === null ? 'nouveau' : diff > 0 ? `▲ ${diff} pts` : diff < 0 ? `▼ ${-diff} pts` : 'stable'}</div></div>
+          <div class="kpi" data-tip="Journées où tout a été coché, sur 30 jours"><div class="k">Parfaites</div><div class="v num">${perf30}</div><div class="t">sur 30 j</div></div>
+        </div>
+        <div class="sect"><span>Cette semaine</span><span>${habits.length} habitude${habits.length > 1 ? 's' : ''}</span></div>
+        <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
+          ${mine ? `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
+        </div>
+        <div class="sect"><span>20 dernières semaines</span></div>
+        <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
+        <div class="heat-foot"><span>${data.checks.filter(c => c.user_id === p.id).length} cochés au total</span><span class="legend">moins <i style="background:var(--cell)"></i><i style="background:color-mix(in srgb, var(--pc) 30%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 55%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 78%, var(--cell))"></i><i style="background:var(--pc)"></i> tout</span></div>
+        <div class="sect"><span>Badges</span><span>${bs.filter(b => b.ok).length}/${bs.length}</span></div>
+        <div class="badges">${bs.map(b => `<span class="bdg ${b.ok?'':'off'}" data-tip="${b.t} · ${b.d}${b.ok ? ' ✓' : ''}">${b.e}</span>`).join('')}</div>
+      </section>`;
+  }).join('');
+
+  // Classement 7 jours
+  const lb = `
+    <section class="card">
+      <h3>Classement <small>7 derniers jours</small></h3>
+      ${board.length ? `<div class="lb">${board.map((o, i) => `<div class="r" style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} des habitudes cochées · ${M.perfectStreak(o.p.id)} journée(s) parfaite(s) de suite">${i < 3 ? `<span class="medal">${medals[i]}</span>` : `<span class="rank">${i + 1}</span>`}<span class="av s">${initial(o.p.name)}</span><span class="nm">${esc(o.p.name)}</span><span class="track"><i style="width:${o.r * 100}%"></i></span><span class="pct num">${pct(o.r)}</span></div>`).join('')}</div>` : '<div class="empty">Personne n’a encore d’habitude.</div>'}
+    </section>`;
+
+  // Jour de la semaine, tout le monde côte à côte
+  const withHabits = ps.filter(p => M.habitsOf(p.id).length);
+  const wds = withHabits.map(p => ({ p, w: M.weekday(p.id) }));
+  const order = [1,2,3,4,5,6,0];
+  let groupBest = null;
+  { let bestV = -1; for (const i of order) { const v = wds.map(x => x.w[i]).filter(x => x !== null); if (v.length) { const avg = v.reduce((a, b) => a + b, 0) / v.length; if (avg > bestV) { bestV = avg; groupBest = i; } } } }
+  const dow = `
+    <section class="card">
+      <h3>Par jour de la semaine <small>12 semaines</small></h3>
+      ${wds.length ? `<div class="dow">${order.map(i => `<div class="c"><div class="bars">${wds.map(x => `<i style="--pc:${colorOf(x.p.id)};height:${(x.w[i] || 0) * 100}%" data-tip="${esc(x.p.name)} · ${JOURS_LONG[i]} · ${x.w[i] === null ? 'pas de données' : pct(x.w[i])}"></i>`).join('')}</div><span class="lab">${JOURS[i]}</span></div>`).join('')}</div>
+      <div class="keys">${wds.map(x => `<span style="--pc:${colorOf(x.p.id)}">${esc(x.p.name)}</span>`).join('')}</div>
+      <div class="insight">${groupBest !== null ? `Le groupe est le plus solide le <b>${JOURS_LONG[groupBest]}</b>.` : 'Pas encore assez de données.'}</div>` : '<div class="empty">Pas encore de données.</div>'}
+    </section>`;
+
+  // Fil d'activité
+  const names = new Map(data.profiles.map(x => [x.id, x.name]));
+  const hname = new Map(data.habits.map(h => [h.id, h.name]));
+  const recent = data.checks.filter(c => c.created_at).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 12);
+  const feed = `
+    <section class="card">
+      <h3>Activité <small>en direct</small></h3>
+      ${recent.length ? `<ul class="feed">${recent.map(c => { const late = c.day !== ymd(new Date(c.created_at)); const dd = new Date(c.day + 'T12:00');
+        return `<li style="--pc:${colorOf(c.user_id)}"><span class="av s">${initial(names.get(c.user_id))}</span><span class="txt"><b>${esc(names.get(c.user_id) || '?')}</b> a coché <b>${esc(hname.get(c.habit_id) || '?')}</b>${late ? ` <span class="late">pour ${JOURS[dd.getDay()]} ${dd.getDate()}</span>` : ''}</span><span class="when">${ago(c.created_at)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Rien encore. Le premier qui coche!</div>'}
+    </section>`;
+
+  // Conserver le focus et le texte du champ « nouvelle habitude » à travers les re-rendus
+  const inp = document.getElementById('new'), keep = inp ? { v: inp.value, f: document.activeElement === inp } : null;
+  app.innerHTML = top + `<div class="people">${cards}</div>` + `<div class="duo">${lb}${dow}</div>` + feed;
+  if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
+  app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
+  bind();
+}
+
+function celebrate() {
+  const colors = ['--c0','--c1','--c2','--c3','--c4','--c5'].map(v => getComputedStyle(document.documentElement).getPropertyValue(v).trim());
+  for (let i = 0; i < 70; i++) {
+    const c = document.createElement('i'); c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw'; c.style.background = colors[i % colors.length];
+    c.style.setProperty('--dx', (Math.random() * 200 - 100) + 'px'); c.style.setProperty('--rot', (Math.random() * 720 - 360) + 'deg');
+    c.style.animationDuration = (1.4 + Math.random() * 1.2) + 's'; c.style.animationDelay = Math.random() * .3 + 's';
+    document.body.appendChild(c); setTimeout(() => c.remove(), 3000);
+  }
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = 'Journée parfaite ✨'; document.body.appendChild(t); setTimeout(() => t.remove(), 2700);
+}
+
+function bind() {
+  document.getElementById('out').onclick = () => sb.auth.signOut();
   const add = async () => {
     const input = document.getElementById('new'); const name = input.value.trim();
     if (!name) return;
     input.value = '';
     const { error } = await sb.from('habits').insert({ name });
-    if (error) alert(error.message); else load();
+    if (error) alert(error.message); else reload(0);
   };
-  document.getElementById('add').onclick = add;
-  document.getElementById('new').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+  const addBtn = document.getElementById('add');
+  if (addBtn) { addBtn.onclick = add; document.getElementById('new').addEventListener('keydown', e => { if (e.key === 'Enter') add(); }); }
   app.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => {
-    const habit_id = b.dataset.h, day = b.dataset.d, on = b.classList.toggle('on');
-    b.textContent = on ? '✓' : '';
+    const habit_id = b.dataset.h, day = b.dataset.d, on = !b.classList.contains('on');
+    const before = model().day(me.id, ymd(new Date()));
+    b.classList.toggle('on', on); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
     const { error } = on
       ? await sb.from('checks').insert({ habit_id, day })
       : await sb.from('checks').delete().match({ habit_id, day });
-    if (error) alert(error.message);
-    load();
+    if (error) { alert(error.message); b.classList.toggle('on', !on); return; }
+    if (on) data.checks.push({ habit_id, day, user_id: me.id, created_at: new Date().toISOString() });
+    else data.checks = data.checks.filter(c => !(c.habit_id === habit_id && c.day === day));
+    const after = model().day(me.id, ymd(new Date()));
+    if (on && day === ymd(new Date()) && after.total && after.done === after.total && before.done < before.total) celebrate();
+    reload(400);
   });
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('Retirer cette habitude et tout son historique?')) return;
     const { error } = await sb.from('habits').delete().eq('id', b.dataset.del);
-    if (error) alert(error.message); else load();
+    if (error) alert(error.message); else reload(0);
   });
-}
-
-// ---------- Stats ----------
-function renderStats() {
-  const M = model();
-  const ps = people();
-  if (!ps.find(p => p.id === who)) who = me.id;
-  const p = ps.find(x => x.id === who);
-  const habits = M.habitsOf(p.id);
-  const todayKey = ymd(new Date());
-  const chips = `<div class="chips">${ps.map(x => `<button class="chip ${x.id===who?'sel':''}" data-who="${x.id}">${esc(x.name)}${x.id===me.id?' (toi)':''}</button>`).join('')}</div>`;
-
-  // Tuiles
-  const cur = habits.map(h => ({ h, s: M.streak(h) })).sort((a, b) => b.s - a.s)[0];
-  const rec = habits.map(h => ({ h, s: M.best(h) })).sort((a, b) => b.s - a.s)[0];
-  const r30 = M.rate(p.id, 30), rPrev = (() => { // 30 jours d'avant, pour la tendance
-    let done = 0, total = 0;
-    for (let i = 30; i < 60; i++) { const k = ymd(addDays(new Date(), -i)); const s = M.day(p.id, k); done += s.done; total += s.total; }
-    return total ? done / total : null;
-  })();
-  const trend = rPrev === null ? '' : (r30 - rPrev >= 0.005 ? `▲ ${Math.round((r30 - rPrev) * 100)} pts vs mois d'avant` : r30 - rPrev <= -0.005 ? `▼ ${Math.round((rPrev - r30) * 100)} pts vs mois d'avant` : 'stable');
-  const perfect30 = lastDays(30).filter(d => M.perfect(p.id, ymd(d))).length;
-  const total = data.checks.filter(c => c.user_id === p.id).length;
-  const tiles = `
-    <div class="tiles">
-      <div class="tile"><div class="k">Série en cours</div><div class="v">${cur ? cur.s : 0} 🔥</div><div class="s">${cur && cur.s ? esc(cur.h.name) : 'coche une journée pour partir'}</div></div>
-      <div class="tile"><div class="k">Record</div><div class="v">${rec ? rec.s : 0}</div><div class="s">${rec && rec.s ? esc(rec.h.name) : '—'}</div></div>
-      <div class="tile"><div class="k">Réussite 30 jours</div><div class="v">${habits.length ? pct(r30) : '—'}</div><div class="s">${trend || 'pas assez d’historique'}</div></div>
-      <div class="tile"><div class="k">Journées parfaites</div><div class="v">${perfect30}</div><div class="s">sur 30 jours · série ${M.perfectStreak(p.id)}</div></div>
-      <div class="tile"><div class="k">Total cochés</div><div class="v">${total}</div><div class="s">${plural(habits.length, 'habitude')}</div></div>
-    </div>`;
-
-  // Calendrier (26 semaines, colonnes = semaines qui commencent le dimanche)
-  const weeks = 26;
-  const end = new Date(); const start = addDays(end, -(weeks - 1) * 7 - end.getDay());
-  let cells = '', months = '';
-  for (let w = 0; w < weeks; w++) {
-    // Le mois s'affiche sur la semaine qui contient son 1er jour
-    const firstOfMonth = [0,1,2,3,4,5,6].map(d => addDays(start, w * 7 + d)).find(x => x.getDate() === 1);
-    months += `<span>${firstOfMonth && w < weeks - 1 ? MOIS[firstOfMonth.getMonth()] : ''}</span>`;
-    for (let d = 0; d < 7; d++) {
-      const day = addDays(start, w * 7 + d), k = ymd(day);
-      if (k > todayKey) { cells += '<i class="fut"></i>'; continue; }
-      const s = M.day(p.id, k), r = s.total ? s.done / s.total : 0;
-      const lvl = !s.done ? 0 : r >= 1 ? 4 : r >= .66 ? 3 : r >= .33 ? 2 : 1;
-      const tip = `${JOURS[day.getDay()]} ${day.getDate()} ${MOIS[day.getMonth()]} · ${s.total ? `${s.done}/${s.total}` : 'rien à cocher'}`;
-      cells += `<i class="l${lvl}${k===todayKey?' t':''}" data-tip="${tip}"></i>`;
-    }
-  }
-  const heat = `
-    <section class="card mb">
-      <h3>Calendrier <small>· 6 derniers mois</small></h3>
-      <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
-      <div class="heat-legend">moins <i style="background:var(--h0)"></i><i style="background:var(--h1)"></i><i style="background:var(--h2)"></i><i style="background:var(--h3)"></i><i style="background:var(--h4)"></i> tout coché</div>
-    </section>`;
-
-  // Par habitude
-  const spark = h => `<span class="spark">${lastDays(14).map(d => { const k = ymd(d); return `<i class="${M.set.has(h.id + k) ? 'on' : ''}" data-tip="${JOURS[d.getDay()]} ${d.getDate()} · ${M.set.has(h.id + k) ? 'fait' : 'pas fait'}"></i>`; }).join('')}</span>`;
-  const perHabit = `
-    <section class="card mb">
-      <h3>Par habitude</h3>
-      ${habits.length ? `<table class="hs"><tr><th>Habitude</th><th class="hide-sm">14 derniers jours</th><th>Série</th><th>Record</th><th>30 j</th></tr>
-      ${habits.map(h => `<tr><td>${esc(h.name)}</td><td class="hide-sm">${spark(h)}</td><td>${M.streak(h)}</td><td>${M.best(h)}</td><td>${pct(M.rate(p.id, 30, h))}</td></tr>`).join('')}</table>`
-      : '<div class="empty">Aucune habitude encore.</div>'}
-    </section>`;
-
-  // Jour de la semaine (12 dernières semaines)
-  const dow = Array.from({ length: 7 }, () => ({ done: 0, total: 0 }));
-  for (const d of lastDays(84)) { const s = M.day(p.id, ymd(d)); dow[d.getDay()].done += s.done; dow[d.getDay()].total += s.total; }
-  const order = [1, 2, 3, 4, 5, 6, 0];
-  const rates = dow.map(x => x.total ? x.done / x.total : null);
-  const known = order.filter(i => rates[i] !== null);
-  const bestD = known.length ? known.reduce((a, b) => rates[b] > rates[a] ? b : a) : null;
-  const worstD = known.length ? known.reduce((a, b) => rates[b] < rates[a] ? b : a) : null;
-  const dowCard = `
-    <section class="card">
-      <h3>Par jour de la semaine <small>· 12 semaines</small></h3>
-      <div class="dow">${order.map(i => `<div class="c" data-tip="${JOURS_LONG[i]} · ${rates[i] === null ? 'pas de données' : pct(rates[i])}"><span class="val">${rates[i] === null ? '' : Math.round(rates[i] * 100)}</span><div class="b ${i===bestD?'best':''}" style="height:${(rates[i] || 0) * 80}px"></div><span class="lab">${JOURS[i]}</span></div>`).join('')}</div>
-      <div class="note">${bestD !== null && rates[bestD] > 0 ? `Meilleur jour: <b>${JOURS_LONG[bestD]}</b>${worstD !== bestD ? ` · plus dur: <b>${JOURS_LONG[worstD]}</b>` : ''}` : 'Pas encore assez de données.'}</div>
-    </section>`;
-
-  // Classement 7 jours
-  const board = ps.map(x => ({ x, r: M.rate(x.id, 7), s: M.perfectStreak(x.id), n: M.habitsOf(x.id).length })).filter(o => o.n).sort((a, b) => b.r - a.r);
-  const medals = ['🥇', '🥈', '🥉'];
-  const lb = `
-    <section class="card">
-      <h3>Classement <small>· 7 derniers jours</small></h3>
-      ${board.length ? `<div class="lb">${board.map((o, i) => `<div class="r ${o.x.id===me.id?'me':''}" data-tip="${esc(o.x.name)} · ${pct(o.r)} des habitudes cochées · ${plural(o.s, 'journée parfaite')} de suite"><span class="medal">${medals[i] || i + 1}</span><span class="nm">${esc(o.x.name)}</span><span class="track"><i style="width:${o.r * 100}%"></i></span><span class="pct">${pct(o.r)}</span></div>`).join('')}</div>` : '<div class="empty">Personne n’a encore d’habitude.</div>'}
-    </section>`;
-
-  // Badges
-  const bs = badgesFor(p.id, M);
-  const badges = `
-    <section class="card mb">
-      <h3>Badges <small>· ${bs.filter(b => b.ok).length}/${bs.length}</small></h3>
-      <div class="badges">${bs.map(b => `<div class="badge ${b.ok?'':'off'}"><div class="e">${b.e}</div><div class="t">${b.t}</div><div class="d">${b.d}</div></div>`).join('')}</div>
-    </section>`;
-
-  // Fil d'activité (tout le monde)
-  const names = new Map(data.profiles.map(x => [x.id, x.name]));
-  const hname = new Map(data.habits.map(h => [h.id, h.name]));
-  const recent = data.checks.filter(c => c.created_at).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 15);
-  const feed = `
-    <section class="card">
-      <h3>Activité récente <small>· tout le monde</small></h3>
-      ${recent.length ? `<ul class="feed">${recent.map(c => { const late = c.day !== ymd(new Date(c.created_at));
-        return `<li><span>✅</span><span><b>${esc(names.get(c.user_id) || '?')}</b> a coché <b>${esc(hname.get(c.habit_id) || '?')}</b>${late ? ` <span style="color:var(--mute)">(pour ${JOURS[new Date(c.day + 'T12:00').getDay()]} ${new Date(c.day + 'T12:00').getDate()})</span>` : ''}</span><span class="when">${ago(c.created_at)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Rien encore.</div>'}
-    </section>`;
-
-  return chips + tiles + heat + perHabit + `<div class="two mb">${dowCard}${lb}</div>` + badges + feed;
-}
-
-function bindStats() {
-  const hw = app.querySelector('.heat-wrap'); if (hw) hw.scrollLeft = hw.scrollWidth; // ouvrir sur aujourd'hui
-  app.querySelectorAll('[data-who]').forEach(b => b.onclick = () => { who = b.dataset.who; pref('who', who); render(); });
 }
 
 // Infobulle partagée (souris et toucher)
 const tipEl = document.getElementById('tip');
-function showTip(t, x, y) {
-  tipEl.textContent = t; tipEl.style.display = 'block';
+function showTip(el) {
+  const r = el.getBoundingClientRect();
+  tipEl.textContent = el.dataset.tip; tipEl.style.display = 'block';
   const w = tipEl.offsetWidth;
-  tipEl.style.left = Math.max(8, Math.min(innerWidth - w - 8, x - w / 2)) + 'px';
-  tipEl.style.top = Math.max(8, y - 34) + 'px';
+  tipEl.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
+  tipEl.style.top = Math.max(8, r.top - 36) + 'px';
 }
-document.addEventListener('mouseover', e => { const t = e.target.closest('[data-tip]'); if (t) { const r = t.getBoundingClientRect(); showTip(t.dataset.tip, r.left + r.width / 2, r.top); } else tipEl.style.display = 'none'; });
-document.addEventListener('click', e => { const t = e.target.closest('[data-tip]'); if (t) { const r = t.getBoundingClientRect(); showTip(t.dataset.tip, r.left + r.width / 2, r.top); } });
+document.addEventListener('mouseover', e => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); else tipEl.style.display = 'none'; });
+document.addEventListener('click', e => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); });
 document.addEventListener('scroll', () => tipEl.style.display = 'none', true);
 
 async function enter(session) {
@@ -490,7 +579,7 @@ sb.auth.onAuthStateChange((event, session) => {
 const { data: { session } } = await sb.auth.getSession();
 if (session) enter(session); else renderAuth();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && me) load(); });
-setInterval(() => { if (me && tab === 'stats' && !document.hidden) render(); }, 60000); // « il y a X min » reste juste
+setInterval(() => { if (me && !document.hidden && document.activeElement?.id !== 'new') render(); }, 60000); // garde « il y a X min » à jour
 </script>
 </body>
 </html>

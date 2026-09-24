@@ -925,7 +925,7 @@ function groupTile(gd, gt, board) {
   const medals = ['🥇', '🥈', '🥉'];
   return `<section class="card tile group-tile">
     <div class="gt-top">${ring(gd, gt, 54, 6)}<div><div class="k">Le groupe aujourd’hui</div><div class="v num">${gt ? Math.round(gd / gt * 100) : 0}<small> %</small></div></div></div>
-    <div class="gt-pod">${board.slice(0, 3).map((o, i) => `<span style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${o.s.done}/${o.s.total} aujourd’hui">${medals[i]} ${esc(o.p.name)} <b class="num">${pct(o.r)}</b></span>`).join('')}</div>
+    <div class="gt-pod">${board.every(o => !o.s.done) ? '<span class="empty">Personne n’a encore coché aujourd’hui</span>' : ''}${board.filter(o => o.s.done).slice(0, 3).map((o, i) => `<span style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${o.s.done}/${o.s.total} aujourd’hui">${medals[i]} ${esc(o.p.name)} <b class="num">${pct(o.r)}</b></span>`).join('')}</div>
   </section>`;
 }
 function notesTile() {

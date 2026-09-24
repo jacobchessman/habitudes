@@ -84,6 +84,29 @@
   .notif.off { background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600; }
   .meta { flex-wrap:wrap; justify-content:flex-end; }
 
+  .habit-action { flex:none; border:0; border-radius:7px; background:var(--cell); padding:3px 6px; cursor:pointer; color:var(--ink2); }
+  .habit-action:focus-visible { outline:2px solid var(--c0); outline-offset:2px; }
+  .frog { border:1px solid color-mix(in srgb,var(--c0) 30%,var(--line)); border-radius:16px; padding:16px; margin-bottom:18px; background:color-mix(in srgb,var(--c0) 6%,var(--card-solid)); }
+  .frog-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .frog h3 { margin:0; font-size:18px; }
+  .frog p { color:var(--ink2); font-size:13px; margin:8px 0; }
+  .frog-name { font-weight:600; overflow-wrap:anywhere; }
+  .frog .btn { background:var(--c0); white-space:normal; }
+  .frog-score { font-size:12px; color:var(--ink2); margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
+  .frog-score b { color:var(--ink); font-size:22px; margin-right:5px; }
+  .frog.eaten { border-color:var(--c0); }
+  .frog-status { color:var(--c0); font-size:12px; font-weight:600; }
+  dialog.editor { width:min(460px,calc(100% - 32px)); padding:24px; border:1px solid var(--line); border-radius:22px; background:var(--card-solid); color:var(--ink); box-shadow:var(--shadow); }
+  dialog::backdrop { background:rgba(0,0,0,.5); backdrop-filter:blur(3px); }
+  .editor h2 { margin:0 0 10px; font-family:"Space Grotesk",sans-serif; }
+  .editor p { color:var(--ink2); font-size:13px; }
+  .editor label { display:block; font-weight:600; font-size:13px; margin:18px 0 8px; }
+  .editor input,.editor select { font:inherit; width:100%; padding:12px; border:1px solid var(--box); border-radius:10px; background:var(--bg); color:var(--ink); }
+  .editor-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .editor .cancel { background:var(--cell); color:var(--ink); }
+  .editor .btn { white-space:normal; }
+  .editor-error { color:var(--c2); min-height:20px; margin-top:10px; font-size:13px; }
+  button:disabled { cursor:default; opacity:.6; }
   .setup { margin-bottom:18px; border-color:color-mix(in srgb, var(--c3) 40%, var(--line)); background:color-mix(in srgb, var(--c3) 8%, var(--card)); }
   .setup h3 { margin:0 0 4px; }
   .setup p { margin:0 0 12px; color:var(--ink2); font-size:14px; }
@@ -251,13 +274,14 @@
 <body>
 <main id="app"></main>
 <div id="tip"></div>
+<dialog id="edit-dialog" class="editor" aria-labelledby="editor-title"></dialog>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
-let me = null, data = { profiles: [], habits: [], checks: [] }, channel = null, live = false;
+let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogStats: [], frogReady: false }, channel = null, live = false;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -313,14 +337,29 @@ function renderAuth(mode = 'in', msg = '') {
 }
 
 // ---------- Données ----------
+let saving = 0, loadSequence = 0;
 async function load() {
-  const [p, h, c] = await Promise.all([
+  if (saving) { reload(250); return; }
+  const sequence = ++loadSequence, uid = me?.id;
+  if (!uid) return;
+  const today = ymd(new Date());
+  const [p, h, c, f, fs] = await Promise.all([
     sb.from('profiles').select('*'),
     sb.from('habits').select('*').order('created_at'),
     sb.from('checks').select('*').gte('day', ymd(addDays(new Date(), -400))),
+    sb.from('frog_days').select('*').eq('day', today),
+    sb.rpc('frog_stats', { p_day: today }),
   ]);
-  data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [] };
+  if (sequence !== loadSequence || saving || me?.id !== uid) return;
+  if (p.error || h.error || c.error) { toast('Chargement impossible. Réessaie dans un instant.'); return; }
+  data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [],
+    frogs: f.data || [], frogStats: fs.data || [], frogReady: !f.error && !fs.error };
   render();
+}
+async function saveChange(action) {
+  saving++; loadSequence++;
+  try { return await action(); }
+  finally { saving--; reload(0); }
 }
 
 let pendingReload = null;
@@ -538,6 +577,68 @@ async function onNotifClick() {
   refreshNotif();
 }
 
+// ---------- The Frog et modification des habitudes ----------
+const frogFor = (uid, day = ymd(new Date())) => data.frogs.find(f => f.user_id === uid && f.day === day);
+function frogCard(p, mine, habits) {
+  if (!data.frogReady) return mine ? `<section class="frog"><h3>🐸 The Frog</h3><p>Le suivi The Frog est temporairement indisponible.</p><button class="link" data-retry-frog>Réessayer</button></section>` : '';
+  const f = frogFor(p.id), stats = data.frogStats.find(x => x.user_id === p.id);
+  const activeHabit = f && habits.find(h => h.id === f.habit_id);
+  const name = f && (activeHabit?.name || f.habit_name);
+  const eaten = Boolean(f?.eaten_at);
+  const total = Number(stats?.eaten_total || 0), recent = Number(stats?.eaten_30 || 0);
+  return `<section class="frog ${eaten ? 'eaten' : ''}" aria-label="The Frog de ${esc(p.name)}">
+    <div class="frog-top"><h3>🐸 The Frog</h3><span class="frog-status">${eaten ? '✓ Eaten !' : 'Le défi du jour'}</span></div>
+    ${f ? `<p class="frog-name">${esc(name)}</p><p>${eaten ? 'Grenouille mangée. Bien joué !' : activeHabit ? 'Commence par le plus difficile. Une coche, une victoire.' : 'Cette habitude a été retirée. Choisis un autre défi.'}</p>` : `<p>${mine ? 'Choisis ton habitude la plus difficile pour aujourd’hui.' : 'Pas encore de Frog choisi aujourd’hui.'}</p>`}
+    ${mine ? !habits.length ? '<p>Ajoute une habitude pour choisir ton Frog.</p>' : eaten ? '<p>Défi du jour accompli. Nouveau choix demain.</p>' : `<div class="frog-top">${activeHabit ? `<button class="btn" data-h="${f.habit_id}" data-d="${f.day}">🐸 Eat the Frog</button>` : ''}<button class="${activeHabit ? 'link' : 'btn'}" data-choose-frog>${activeHabit ? 'Changer mon Frog' : 'Choisir mon Frog du jour'}</button></div>` : ''}
+    <div class="frog-score"><b class="num">${total}</b> Frog${total > 1 ? 's' : ''} eaten · ${recent} sur les 30 derniers jours<br><small>1 maximum par jour · depuis l’activation du suivi</small></div>
+  </section>`;
+}
+function openEditor(kind, habitId) {
+  const dialog = document.getElementById('edit-dialog');
+  if (dialog.open) return;
+  const habits = data.habits.filter(h => h.user_id === me.id && !h.archived_at);
+  const habit = habits.find(h => h.id === habitId);
+  if (kind === 'rename' && !habit) return;
+  const frog = frogFor(me.id), day = ymd(new Date());
+  const rename = kind === 'rename';
+  dialog.innerHTML = `<form id="editor-form">
+    <h2 id="editor-title">${rename ? 'Renommer l’habitude' : '🐸 Choisis ton Frog'}</h2>
+    <p>${rename ? 'Tes coches, tes séries et ton historique restent intacts.' : 'Quel défi as-tu le plus envie de remettre à plus tard ? Choisis une seule habitude pour aujourd’hui.'}</p>
+    <label for="editor-value">${rename ? 'Nom de l’habitude' : 'Mon habitude la plus difficile'}</label>
+    ${rename ? `<input id="editor-value" name="habitName" required maxlength="120" autocomplete="off" value="${esc(habit.name)}">` : `<select id="editor-value" required><option value="">Sélectionne une habitude…</option>${habits.map(h => `<option value="${h.id}" ${frog?.habit_id === h.id ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select>`}
+    ${rename ? '' : '<p>Sa coche du jour compte automatiquement comme « eaten ». Une habitude déjà cochée compte aussi. Décocher corrige le score.</p>'}
+    <div id="editor-error" class="editor-error" role="alert"></div>
+    <div class="editor-actions"><button type="button" class="btn cancel" id="editor-cancel">Annuler</button><button class="btn" type="submit">${rename ? 'Enregistrer' : 'C’est mon Frog'}</button></div>
+  </form>`;
+  let busy = false;
+  dialog.oncancel = e => { if (busy) e.preventDefault(); };
+  document.getElementById('editor-cancel').onclick = () => dialog.close();
+  document.getElementById('editor-form').onsubmit = async e => {
+    e.preventDefault();
+    if (busy) return;
+    const input = document.getElementById('editor-value'), value = input.value.trim();
+    const errorEl = document.getElementById('editor-error');
+    if (!value) { errorEl.textContent = 'Choisis un nom ou une habitude.'; input.focus(); return; }
+    if (!rename && day !== ymd(new Date())) { errorEl.textContent = 'Une nouvelle journée a commencé. Ferme cette fenêtre et choisis ton Frog du jour.'; return; }
+    busy = true; errorEl.textContent = '';
+    dialog.querySelectorAll('button,input,select').forEach(el => el.disabled = true);
+    try {
+      await saveChange(async () => {
+        const result = rename
+          ? await sb.from('habits').update({ name: value }).eq('id', habit.id).eq('user_id', me.id).select('id,name').single()
+          : await sb.rpc('choose_frog', { p_habit_id: value, p_day: day, p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+        if (result.error) throw result.error;
+      });
+      dialog.close();
+      toast(rename ? 'Habitude renommée' : '🐸 Ton Frog du jour est choisi !');
+    } catch (error) { errorEl.textContent = error.message || 'Enregistrement impossible. Réessaie.'; }
+    finally { busy = false; dialog.querySelectorAll('button,input,select').forEach(el => el.disabled = false); }
+  };
+  dialog.showModal();
+  const input = document.getElementById('editor-value'); input.focus();
+  if (rename) input.select();
+}
+
 // ---------- Rendu ----------
 function render() {
   const M = model();
@@ -594,7 +695,7 @@ function render() {
     const head = `<div class="hrow head"><span></span>${days.map(d => `<span class="${ymd(d)===todayKey?'today':''}">${JOURS[d.getDay()]}<br>${d.getDate()}</span>`).join('')}</div>`;
     const rows = streaks.map(({ h, s }) => `
       <div class="hrow">
-        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${mine ? `<button class="del" data-del="${h.id}" title="Retirer">✕</button>` : ''}</div>
+        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${frogFor(p.id)?.habit_id === h.id ? '<span class="chip" title="The Frog du jour">🐸</span>' : ''}${mine ? `<button class="habit-action" data-rename="${h.id}" aria-label="Renommer ${esc(h.name)}" title="Renommer">✎</button><button class="del" data-del="${h.id}" aria-label="Retirer ${esc(h.name)}" title="Retirer">✕</button>` : ''}</div>
         ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
           const open = mine && k === todayKey; // le passé est figé (règle aussi appliquée par la base)
           return `<button class="box ${on?'on':''} ${k===todayKey?'today':''} ${mine && k < todayKey ? 'locked' : ''}" ${open?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${open ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}${mine && k < todayKey ? ' · 🔒 journée terminée' : ''}"`}>${CHECK}</button>`; }).join('')}
@@ -623,6 +724,7 @@ function render() {
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
+        ${frogCard(p, mine, habits)}
         <div class="kpis">
           <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
           <div class="kpi" data-tip="${rec && rec.b ? `Plus longue série: ${esc(rec.h.name)}` : 'Aucune série encore'}"><div class="k">Record</div><div class="v num">${rec ? rec.b : 0}<small> j</small></div><div class="t">${rec && rec.b ? esc(rec.h.name) : '—'}</div></div>
@@ -696,6 +798,9 @@ function celebrate() {
 }
 
 function bind() {
+  app.querySelectorAll('[data-rename]').forEach(b => b.onclick = () => openEditor('rename', b.dataset.rename));
+  app.querySelectorAll('[data-choose-frog]').forEach(b => b.onclick = () => openEditor('frog'));
+  app.querySelectorAll('[data-retry-frog]').forEach(b => b.onclick = () => load());
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('notif')?.addEventListener('click', onNotifClick);
   document.getElementById('setup-go')?.addEventListener('click', onNotifClick);
@@ -711,18 +816,29 @@ function bind() {
   const addBtn = document.getElementById('add');
   if (addBtn) { addBtn.onclick = add; document.getElementById('new').addEventListener('keydown', e => { if (e.key === 'Enter') add(); }); }
   app.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => {
-    const habit_id = b.dataset.h, day = b.dataset.d, on = !b.classList.contains('on');
+    if (saving) return;
+    const habit_id = b.dataset.h, day = b.dataset.d;
+    if (!data.habits.some(h => h.id === habit_id && h.user_id === me.id)) return;
+    if (day !== ymd(new Date())) { toast('🔒 Cette journée est terminée'); reload(0); return; }
+    const on = !model().set.has(habit_id + day);
     const before = model().day(me.id, ymd(new Date()));
-    b.classList.toggle('on', on); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
-    const res = on
-      ? await sb.from('checks').insert({ habit_id, day })
-      : await sb.from('checks').delete().match({ habit_id, day }).select();
-    if (res.error || (!on && !res.data?.length)) { b.classList.toggle('on', !on); toast('🔒 Cette journée est terminée'); reload(0); return; }
-    if (on) data.checks.push({ habit_id, day, user_id: me.id, created_at: new Date().toISOString() });
-    else data.checks = data.checks.filter(c => !(c.habit_id === habit_id && c.day === day));
-    const after = model().day(me.id, ymd(new Date()));
-    if (on && day === ymd(new Date()) && after.total && after.done === after.total && before.done < before.total) celebrate();
-    reload(400);
+    const isFrog = on && frogFor(me.id, day)?.habit_id === habit_id;
+    b.disabled = true;
+    try {
+      await saveChange(async () => {
+        const result = on
+          ? await sb.from('checks').insert({ habit_id, day })
+          : await sb.from('checks').delete().match({ habit_id, day, user_id: me.id }).select();
+        if (result.error) throw result.error;
+        if (!on && !result.data?.length) throw new Error('🔒 Cette journée est terminée');
+        if (on) data.checks.push({ habit_id, day, user_id: me.id, created_at: new Date().toISOString() });
+        else data.checks = data.checks.filter(c => !(c.habit_id === habit_id && c.day === day));
+        const after = model().day(me.id, ymd(new Date()));
+        if (on && day === ymd(new Date()) && after.total && after.done === after.total && before.done < before.total) celebrate();
+        if (isFrog) toast('🐸 Frog eaten ! Un défi difficile de moins.');
+      });
+    } catch (error) { alert(error.message || 'Impossible de sauvegarder cette coche.'); }
+    finally { b.disabled = false; }
   });
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
     if (!confirm('Retirer cette habitude? Elle disparaît de ta semaine, mais son historique reste dans tes stats.')) return;
@@ -756,7 +872,7 @@ async function enter(session) {
 
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session && (!me || me.id !== session.user.id)) enter(session);
-  if (event === 'SIGNED_OUT') { me = null; if (channel) sb.removeChannel(channel); renderAuth(); }
+  if (event === 'SIGNED_OUT') { document.getElementById('edit-dialog').close(); me = null; if (channel) sb.removeChannel(channel); renderAuth(); }
 });
 const { data: { session } } = await sb.auth.getSession();
 if (session) enter(session); else renderAuth();

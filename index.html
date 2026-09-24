@@ -283,7 +283,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
-let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogStats: [], frogReady: false }, channel = null, live = false;
+let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogChoices: [], frogStats: [], frogReady: false }, channel = null, live = false;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -345,17 +345,18 @@ async function load() {
   const sequence = ++loadSequence, uid = me?.id;
   if (!uid) return;
   const today = ymd(new Date());
-  const [p, h, c, f, fs] = await Promise.all([
+  const [p, h, c, f, fc, fs] = await Promise.all([
     sb.from('profiles').select('*'),
     sb.from('habits').select('*').order('created_at'),
     sb.from('checks').select('*').gte('day', ymd(addDays(new Date(), -400))),
     sb.from('frog_days').select('*').eq('day', today),
+    sb.from('frog_choices').select('*'),
     sb.rpc('frog_stats', { p_day: today }),
   ]);
   if (sequence !== loadSequence || saving || me?.id !== uid) return;
   if (p.error || h.error || c.error) { toast('Chargement impossible. Réessaie dans un instant.'); return; }
   data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [],
-    frogs: f.data || [], frogStats: fs.data || [], frogReady: !f.error && !fs.error };
+    frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error };
   render();
 }
 async function saveChange(action) {
@@ -580,21 +581,28 @@ async function onNotifClick() {
 }
 
 // ---------- The Frog et modification des habitudes ----------
-const frogFor = (uid, day = ymd(new Date())) => data.frogs.find(f => f.user_id === uid && f.day === day);
+const frogFor = uid => data.frogChoices.find(f => f.user_id === uid);
+const frogUnlockAt = f => f ? new Date(new Date(f.selected_at).getTime() + 168 * 3600000) : null;
 function frogCard(p, mine, habits) {
   if (!data.frogReady) return mine ? `<section class="frog"><h3>🐸 The Frog</h3><p>Le suivi The Frog est temporairement indisponible.</p><button class="link" data-retry-frog>Réessayer</button></section>` : '';
   const f = frogFor(p.id), stats = data.frogStats.find(x => x.user_id === p.id);
   const activeHabit = f && habits.find(h => h.id === f.habit_id);
-  const name = f && (activeHabit?.name || f.habit_name);
-  const eaten = Boolean(f?.eaten_at);
+  const name = f && (activeHabit?.name || f.habit_name), today = ymd(new Date());
+  const daily = data.frogs.find(x => x.user_id === p.id && x.day === today);
+  const eaten = Boolean(f && ((daily?.habit_id === f.habit_id && daily?.eaten_at) || data.checks.some(c => c.habit_id === f.habit_id && c.day === today)));
+  const unlock = frogUnlockAt(f), locked = unlock && unlock > new Date();
+  const unlockLabel = unlock?.toLocaleString('fr-CA', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' });
   const total = Number(stats?.eaten_total || 0), recent = Number(stats?.eaten_30 || 0);
   return `<section class="frog ${eaten ? 'eaten' : ''}" aria-label="The Frog de ${esc(p.name)}">
-    <div class="frog-top"><h3>🐸 The Frog</h3><span class="frog-status">${eaten ? '✓ Eaten !' : 'Le défi du jour'}</span></div>
-    ${f ? `<p class="frog-name">${esc(name)}</p><p>${eaten ? 'Grenouille mangée. Bien joué !' : activeHabit ? 'Commence par le plus difficile. Une coche, une victoire.' : 'Cette habitude a été retirée. Choisis un autre défi.'}</p>` : `<p>${mine ? 'Choisis ton habitude la plus difficile pour aujourd’hui.' : 'Pas encore de Frog choisi aujourd’hui.'}</p>`}
-    ${mine ? !habits.length ? '<p>Ajoute une habitude pour choisir ton Frog.</p>' : eaten ? '<p>Défi du jour accompli. Nouveau choix demain.</p>' : `<div class="frog-top">${activeHabit ? `<button class="btn" data-h="${f.habit_id}" data-d="${f.day}">🐸 Eat the Frog</button>` : ''}<button class="${activeHabit ? 'link' : 'btn'}" data-choose-frog>${activeHabit ? 'Changer mon Frog' : 'Choisir mon Frog du jour'}</button></div>` : ''}
-    <div class="frog-score"><b class="num">${total}</b> Frog${total > 1 ? 's' : ''} eaten · ${recent} sur les 30 derniers jours<br><small>1 maximum par jour · depuis l’activation du suivi</small></div>
+    <div class="frog-top"><h3>🐸 The Frog</h3><span class="frog-status">${eaten ? '✓ Eaten aujourd’hui !' : 'Ton défi prioritaire'}</span></div>
+    ${f ? `<p class="frog-name">${esc(name)}</p><p>${eaten ? 'Grenouille mangée. Bien joué ! Le même Frog t’attend demain.' : activeHabit ? 'Le même défi chaque jour, jusqu’à ton prochain changement.' : 'Cette habitude a été retirée. Ton historique et la date de changement sont conservés.'}</p>` : `<p>${mine ? 'Choisis ton habitude la plus difficile. Elle restera ton Frog chaque jour.' : 'Pas encore de Frog choisi.'}</p>`}
+    ${mine ? `<div class="frog-top">${activeHabit && !eaten ? `<button class="btn" data-h="${f.habit_id}" data-d="${today}">🐸 Eat the Frog</button>` : ''}${habits.length ? `<button class="${f ? 'link' : 'btn'}" data-choose-frog ${locked ? 'disabled' : ''}>${f ? 'Changer mon Frog' : 'Choisir mon Frog'}</button>` : '<p>Ajoute une habitude pour choisir ton Frog.</p>'}</div>
+      <p>${locked ? `🔒 Changement possible le ${esc(unlockLabel)}.` : 'Un changement maximum tous les 7 jours.'}</p>` : ''}
+    ${daily?.eaten_at && !eaten ? '<p>Une victoire Frog est déjà comptée aujourd’hui.</p>' : ''}
+    <div class="frog-score"><b class="num">${total}</b> Frog${total > 1 ? 's' : ''} eaten · ${recent} sur les 30 derniers jours<br><small>1 maximum par jour · total conservé quand tu changes de Frog</small></div>
   </section>`;
 }
+
 function openEditor(kind, habitId) {
   const dialog = document.getElementById('edit-dialog');
   if (dialog.open) return;
@@ -603,9 +611,10 @@ function openEditor(kind, habitId) {
   if (kind === 'rename' && !habit) return;
   const frog = frogFor(me.id), day = ymd(new Date());
   const rename = kind === 'rename';
+  if (!rename && frogUnlockAt(frog) > new Date()) { toast('Tu dois attendre 7 jours entre deux changements de Frog.'); return; }
   dialog.innerHTML = `<form id="editor-form">
     <h2 id="editor-title">${rename ? 'Renommer l’habitude' : '🐸 Choisis ton Frog'}</h2>
-    <p>${rename ? 'Tes coches, tes séries et ton historique restent intacts.' : 'Quel défi as-tu le plus envie de remettre à plus tard ? Choisis une seule habitude pour aujourd’hui.'}</p>
+    <p>${rename ? 'Tes coches, tes séries et ton historique restent intacts.' : 'Quelle habitude veux-tu affronter en priorité chaque jour ? Ton choix reste en place. Tu pourras le changer après 7 jours.'}</p>
     <label for="editor-value">${rename ? 'Nom de l’habitude' : 'Mon habitude la plus difficile'}</label>
     ${rename ? `<input id="editor-value" name="habitName" required maxlength="120" autocomplete="off" value="${esc(habit.name)}">` : `<select id="editor-value" required><option value="">Sélectionne une habitude…</option>${habits.map(h => `<option value="${h.id}" ${frog?.habit_id === h.id ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}</select>`}
     ${rename ? '' : '<p>Sa coche du jour compte automatiquement comme « eaten ». Une habitude déjà cochée compte aussi. Décocher corrige le score.</p>'}
@@ -621,18 +630,18 @@ function openEditor(kind, habitId) {
     const input = document.getElementById('editor-value'), value = input.value.trim();
     const errorEl = document.getElementById('editor-error');
     if (!value) { errorEl.textContent = 'Choisis un nom ou une habitude.'; input.focus(); return; }
-    if (!rename && day !== ymd(new Date())) { errorEl.textContent = 'Une nouvelle journée a commencé. Ferme cette fenêtre et choisis ton Frog du jour.'; return; }
+    if (!rename && day !== ymd(new Date())) { errorEl.textContent = 'Une nouvelle journée a commencé. Ferme cette fenêtre et confirme ton choix à nouveau.'; return; }
     busy = true; errorEl.textContent = '';
     dialog.querySelectorAll('button,input,select').forEach(el => el.disabled = true);
     try {
       await saveChange(async () => {
         const result = rename
           ? await sb.from('habits').update({ name: value }).eq('id', habit.id).eq('user_id', me.id).select('id,name').single()
-          : await sb.rpc('choose_frog', { p_habit_id: value, p_day: day, p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+          : await sb.rpc('set_frog', { p_habit_id: value, p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
         if (result.error) throw result.error;
       });
       dialog.close();
-      toast(rename ? 'Habitude renommée' : '🐸 Ton Frog du jour est choisi !');
+      toast(rename ? 'Habitude renommée' : '🐸 Ton Frog est choisi pour les 7 prochains jours et au-delà !');
     } catch (error) { errorEl.textContent = error.message || 'Enregistrement impossible. Réessaie.'; }
     finally { busy = false; dialog.querySelectorAll('button,input,select').forEach(el => el.disabled = false); }
   };
@@ -697,7 +706,7 @@ function render() {
     const head = `<div class="hrow head"><span></span>${days.map(d => `<span class="${ymd(d)===todayKey?'today':''}">${JOURS[d.getDay()]}<br>${d.getDate()}</span>`).join('')}</div>`;
     const rows = streaks.map(({ h, s }) => `
       <div class="hrow">
-        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${frogFor(p.id)?.habit_id === h.id ? '<span class="chip" title="The Frog du jour">🐸</span>' : ''}${mine ? `<button class="habit-action" data-rename="${h.id}" aria-label="Renommer ${esc(h.name)}" title="Renommer">✎</button><button class="del" data-del="${h.id}" aria-label="Retirer ${esc(h.name)}" title="Retirer">✕</button>` : ''}</div>
+        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${frogFor(p.id)?.habit_id === h.id ? '<span class="chip" title="The Frog">🐸</span>' : ''}${mine ? `<button class="habit-action" data-rename="${h.id}" aria-label="Renommer ${esc(h.name)}" title="Renommer">✎</button><button class="del" data-del="${h.id}" aria-label="Retirer ${esc(h.name)}" title="Retirer">✕</button>` : ''}</div>
         ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
           const open = mine && k === todayKey; // le passé est figé (règle aussi appliquée par la base)
           return `<button class="box ${on?'on':''} ${k===todayKey?'today':''} ${mine && k < todayKey ? 'locked' : ''}" ${open?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${open ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}${mine && k < todayKey ? ' · 🔒 journée terminée' : ''}"`}>${CHECK}</button>`; }).join('')}

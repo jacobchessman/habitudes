@@ -254,6 +254,7 @@
   .add input { flex:1; min-width:0; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:color-mix(in srgb, var(--card-solid) 70%, transparent); }
   .add input:focus { outline:2px solid color-mix(in srgb, var(--pc) 50%, transparent); outline-offset:1px; }
   .btn { padding:10px 16px; border-radius:12px; border:0; background:var(--pc, var(--ink)); color:#fff; cursor:pointer; font-weight:600; white-space:nowrap; }
+  .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
   /* Calendrier */
@@ -792,6 +793,8 @@ async function onNotifClick() {
 }
 
 // ---------- Centre de notifications ----------
+// Règle du groupe (aussi appliquée par la base): 5 habitudes en cours max, et au plus 5 comptées par jour pour les XP.
+const MAX_HABITUDES = 5;
 const DEFAULT_PREFS = { reminder: true, reminder_hour: 21, streak: true, perfect: true };
 let myPrefs = { ...DEFAULT_PREFS };
 async function loadPrefs() {
@@ -1105,9 +1108,11 @@ function render() {
           <div class="kpi" data-tip="Journées où tout a été coché, sur 30 jours"><div class="k">Parfaites</div><div class="v num">${perf30}</div><div class="t">sur 30 j</div></div>
           <div class="kpi" data-tip="Frogs mangés au total · 1 maximum par jour"><div class="k">🐸 Frogs</div><div class="v num">${frogEaten.total}</div><div class="t">${frogEaten.recent} sur 30 j</div></div>
         </div>
-        <div class="sect"><span>Cette semaine</span><span>${habits.length} habitude${habits.length > 1 ? 's' : ''}</span></div>
+        <div class="sect"><span>Cette semaine</span><span>${habits.length}/${MAX_HABITUDES} habitudes</span></div>
         <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
-          ${mine ? `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
+          ${mine ? (habits.length >= MAX_HABITUDES
+            ? `<div class="add-full">🔒 ${MAX_HABITUDES}/${MAX_HABITUDES} habitudes, c'est le maximum. Retire-en une (✕) pour en ajouter une autre.</div>`
+            : `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>`) : ''}
         </div>
         ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog', p.id)}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
         <div class="fold ${shown('frog', p.id) ? '' : 'hidden'}" data-fold-body="frog">${frogCard(p, mine, habits)}</div>` : ''}
@@ -1199,7 +1204,7 @@ function bind() {
     if (!name) return;
     input.value = '';
     const { error } = await sb.from('habits').insert({ name });
-    if (error) alert(error.message); else reload(0);
+    if (error) toast(error.message.includes('Maximum') ? '🔒 Maximum 5 habitudes' : error.message); reload(0);
   };
   const addBtn = document.getElementById('add');
   if (addBtn) { addBtn.onclick = add; document.getElementById('new').addEventListener('keydown', e => { if (e.key === 'Enter') add(); }); }

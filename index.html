@@ -605,14 +605,22 @@ function xpLeaderboard() {
  ${!data.gameReady?'<p class="game-note">Classement disponible après activation.</p>':rows.length?rows.map((o,i)=>{const rank=1+rows.filter(x=>x.g[xpPeriod]>o.g[xpPeriod]).length,r=rankFor(o.g.peak_xp);return `<div class="xp-row"><span>${o.g[xpPeriod]>0&&rank<=3?['🥇','🥈','🥉'][rank-1]:rank}</span><div><b>${esc(o.p.name)}${champion>0&&o.g.previous_week===champion?' 👑':''}</b><small>${r.emoji} ${r.name}</small></div><b class="num">${o.g[xpPeriod]} XP</b></div>`}).join(''):'<p class="game-note">Le classement attend sa première personne.</p>'}</section>`;
 }
 
-// Sections repliables: le choix vaut pour toutes les cartes, sur cet appareil.
-function shown(key) { try { return localStorage.getItem(`habitudes:show:${key}`) !== '0'; } catch { return true; } }
-function toggleFold(key) {
-  const on = !shown(key);
-  try { localStorage.setItem(`habitudes:show:${key}`, on ? '1' : '0'); } catch {}
-  app.querySelectorAll(`[data-fold="${key}"]`).forEach(b => b.setAttribute('aria-expanded', on));
-  app.querySelectorAll(`[data-fold-body="${key}"]`).forEach(b => b.classList.toggle('hidden', !on));
-  if (on && key === 'heat') app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
+// Sections repliables: chaque carte garde son propre état (par personne et par section), sur cet appareil.
+function shown(key, uid) {
+  try {
+    const own = localStorage.getItem(`habitudes:show:${uid}:${key}`);
+    if (own !== null) return own !== '0';
+    return localStorage.getItem(`habitudes:show:${key}`) !== '0'; // ancien réglage commun, comme point de départ
+  } catch { return true; }
+}
+function toggleFold(key, uid) {
+  const on = !shown(key, uid);
+  try { localStorage.setItem(`habitudes:show:${uid}:${key}`, on ? '1' : '0'); } catch {}
+  const card = app.querySelector(`.person[data-uid="${uid}"]`);
+  if (!card) return;
+  card.querySelectorAll(`[data-fold="${key}"]`).forEach(b => b.setAttribute('aria-expanded', on));
+  card.querySelectorAll(`[data-fold-body="${key}"]`).forEach(b => b.classList.toggle('hidden', !on));
+  if (on && key === 'heat') card.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
 }
 
 // La couleur suit la personne (ordre stable par id), jamais son rang.
@@ -996,7 +1004,7 @@ function render() {
     const fst = data.frogStats.find(x => x.user_id === p.id), frogEaten = { total: Number(fst?.eaten_total || 0), recent: Number(fst?.eaten_30 || 0) };
 
     return `
-      <section class="card person ${mine?'me':''}" style="--pc:${pc}">
+      <section class="card person ${mine?'me':''}" data-uid="${p.id}" style="--pc:${pc}">
         <div class="ph">
           <span class="av">${initial(p.name)}</span>
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
@@ -1014,15 +1022,15 @@ function render() {
         <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
           ${mine ? `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
         </div>
-        ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog')}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
-        <div class="fold ${shown('frog') ? '' : 'hidden'}" data-fold-body="frog">${frogCard(p, mine, habits)}</div>` : ''}
-        <button class="sect" data-fold="heat" aria-expanded="${shown('heat')}"><span>30 dernières semaines</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
-        <div class="fold ${shown('heat') ? '' : 'hidden'}" data-fold-body="heat">
+        ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog', p.id)}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
+        <div class="fold ${shown('frog', p.id) ? '' : 'hidden'}" data-fold-body="frog">${frogCard(p, mine, habits)}</div>` : ''}
+        <button class="sect" data-fold="heat" aria-expanded="${shown('heat', p.id)}"><span>30 dernières semaines</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
+        <div class="fold ${shown('heat', p.id) ? '' : 'hidden'}" data-fold-body="heat">
         <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
         <div class="heat-foot"><span>${data.checks.filter(c => c.user_id === p.id).length} cochés au total</span><span class="legend">moins <i style="background:var(--cell)"></i><i style="background:color-mix(in srgb, var(--pc) 30%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 55%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 78%, var(--cell))"></i><i style="background:var(--pc)"></i> tout</span></div>
         </div>
-        <button class="sect" data-fold="badges" aria-expanded="${shown('badges')}"><span>Badges</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
-        <div class="fold ${shown('badges') ? '' : 'hidden'}" data-fold-body="badges">${badgeIcons(p.id, bs, mine)}</div>
+        <button class="sect" data-fold="badges" aria-expanded="${shown('badges', p.id)}"><span>Badges</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
+        <div class="fold ${shown('badges', p.id) ? '' : 'hidden'}" data-fold-body="badges">${badgeIcons(p.id, bs, mine)}</div>
       </section>`;
   }).join('');
 
@@ -1094,7 +1102,7 @@ function bind() {
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('notif')?.addEventListener('click', openCenter);
   document.getElementById('setup-go')?.addEventListener('click', onNotifClick);
-  app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold));
+  app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold, b.closest('.person')?.dataset.uid));
   document.getElementById('setup-later')?.addEventListener('click', () => { try { localStorage.setItem('habitudes:notif-plus-tard', Date.now() + 3 * 864e5); } catch {} render(); });
   document.getElementById('out').onclick = () => sb.auth.signOut();
   const add = async () => {

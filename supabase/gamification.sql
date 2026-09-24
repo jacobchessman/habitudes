@@ -48,10 +48,11 @@ begin
     or exists(select 1 from public.checks ck where ck.user_id=uid and ck.habit_id=h.id and ck.day=days.day))) total
   from days left join c using(day) left join f using(day) order by days.day
  loop
-  d:=r.day; n:=n+r.done; frogs:=frogs+r.frog; xp:=xp+r.done+r.frog;
-  if d>=week_start then weekly:=weekly+r.done+r.frog; end if;
-  if d>=month_start then monthly:=monthly+r.done+r.frog; end if;
-  if d>=week_start-7 and d<week_start then last_week:=last_week+r.done+r.frog; end if;
+  -- XP: au plus 5 habitudes comptées par jour (règle du groupe: 5 habitudes max, pas d'avantage à en empiler).
+  d:=r.day; n:=n+r.done; frogs:=frogs+r.frog; xp:=xp+least(r.done,5)+r.frog;
+  if d>=week_start then weekly:=weekly+least(r.done,5)+r.frog; end if;
+  if d>=month_start then monthly:=monthly+least(r.done,5)+r.frog; end if;
+  if d>=week_start-7 and d<week_start then last_week:=last_week+least(r.done,5)+r.frog; end if;
   if r.done>0 then
    if prev is not null and d-prev>=4 and not dates?'comeback' then dates:=dates||jsonb_build_object('comeback',d); end if;
    run:=case when d=prev+1 then run+1 else 1 end; prev:=d; best_run:=greatest(best_run,run);

@@ -906,12 +906,13 @@ async function onNotifClick() {
 }
 
 // Emojis du chat: les plus utiles pour se motiver (et se niaiser)
+let emojiOpen = false; // la grille reste ouverte même si la page se rafraîchit en direct
 const EMOJIS = ['😂','🤣','😅','😎','🥲','😤','😴','🤡','💀','🙏','👏','💪','🔥','💯','✅','❌','🏆','🥇','🐸','🧠','📚','🏋️','🏃','🥗','💧','😭','😡','🤝','👀','🫡','❤️','🚀','🎯','⏰','🌅','🦉'];
 
 function bindChat() {
   const pop = document.getElementById('emoji-pop'), ebtn = document.getElementById('emoji-btn'), input = document.getElementById('chat-input');
   if (pop && ebtn && input) {
-    ebtn.onclick = () => { pop.hidden = !pop.hidden; };
+    ebtn.onclick = () => { emojiOpen = !emojiOpen; pop.hidden = !emojiOpen; };
     pop.querySelectorAll('[data-emoji]').forEach(b => b.onclick = () => {
       const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? s;
       input.value = input.value.slice(0, s) + b.dataset.emoji + input.value.slice(e);
@@ -928,7 +929,7 @@ function bindChat() {
       e.preventDefault();
       const body = chatInput.value.trim();
       if (!body) return;
-      chatInput.value = ''; grow(); document.getElementById('emoji-pop')?.setAttribute('hidden', '');
+      chatInput.value = ''; grow(); emojiOpen = false; document.getElementById('emoji-pop')?.setAttribute('hidden', '');
       const { error } = await sb.from('chat_messages').insert({ body });
       if (error) { chatInput.value = body; toast('Message pas envoyé. Réessaie.'); }
       reload(0);
@@ -1012,7 +1013,7 @@ function chatCard() {
   return `<section class="card chat chat-panel" style="--pc:${colorOf(me.id)}" role="dialog" aria-label="Chat du groupe">
     <h3>💬 Chat du groupe <small>${data.chatReady ? 'en direct' : 'indisponible pour l’instant'}</small><button class="nc-x" id="chat-close" aria-label="Fermer le chat">✕</button></h3>
     <div class="chat-list" id="chat-list">${msgs || '<div class="empty chat-empty">Personne n’a encore écrit. Lance la conversation 👋</div>'}</div>
-    <div class="emoji-pop" id="emoji-pop" hidden>${EMOJIS.map(e => `<button type="button" data-emoji="${e}" aria-label="${e}">${e}</button>`).join('')}</div>
+    <div class="emoji-pop" id="emoji-pop" ${emojiOpen ? '' : 'hidden'}>${EMOJIS.map(e => `<button type="button" data-emoji="${e}" aria-label="${e}">${e}</button>`).join('')}</div>
     <form class="chat-form" id="chat-form"><button type="button" class="emoji-btn" id="emoji-btn" aria-label="Ajouter un emoji" title="Emojis" ${data.chatReady ? '' : 'disabled'}>😊</button><textarea id="chat-input" rows="1" maxlength="500" placeholder="Écris au groupe… (Entrée pour envoyer)" ${data.chatReady ? '' : 'disabled'}></textarea><button class="btn" type="submit" ${data.chatReady ? '' : 'disabled'}>Envoyer</button></form>
   </section>`;
 }

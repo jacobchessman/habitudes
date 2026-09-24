@@ -320,7 +320,14 @@
   .auth .btn { --pc:var(--c0); width:100%; padding:12px; }
   .err { color:#e5484d; min-height:1.2em; font-size:13px; }
 
-  #tip { position:fixed; pointer-events:none; background:var(--ink); color:var(--bg); font-size:12px; padding:6px 9px; border-radius:8px; white-space:nowrap; z-index:20; display:none; box-shadow:0 6px 20px rgba(0,0,0,.25); }
+  #tip { position:fixed; pointer-events:none; background:var(--card-solid); color:var(--ink); border:1px solid var(--line); font-size:12px; padding:7px 10px; border-radius:10px; white-space:nowrap; z-index:20; display:none; box-shadow:0 10px 28px rgba(0,0,0,.28); }
+  #tip.rich { white-space:normal; width:210px; padding:10px 12px; }
+  #tip.rich b { display:block; font-size:13px; }
+  #tip.rich .d { display:block; color:var(--ink2); margin-top:2px; line-height:1.4; }
+  #tip.rich .bar { display:block; height:4px; border-radius:2px; background:var(--cell); overflow:hidden; margin-top:9px; }
+  #tip.rich .bar i { display:block; height:100%; border-radius:2px; background:var(--pc, var(--c0)); }
+  #tip.rich .n { display:flex; justify-content:space-between; color:var(--mute); font-size:11px; margin-top:5px; font-variant-numeric:tabular-nums; }
+  #tip.rich .ok { display:block; color:var(--c0); font-weight:600; margin-top:7px; }
   .confetti { position:fixed; top:-10px; width:8px; height:12px; border-radius:2px; z-index:30; pointer-events:none; animation:fall linear forwards; }
   @keyframes fall { to { transform:translate(var(--dx), 105vh) rotate(var(--rot)); opacity:.9; } }
   .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:600; z-index:31; box-shadow:0 10px 30px rgba(0,0,0,.3); animation:toast 2.6s ease forwards; }
@@ -586,13 +593,22 @@ function xpPanel(uid) {
 // Les achievements (vérifiés par le serveur) passent d'abord; on retire de la liste locale ceux qui les répètent.
 const DOUBLONS = new Set(['Premier pas', 'Une semaine', 'Un mois', 'Journée parfaite', 'Semaine parfaite', 'Centurion']);
 function badgeIcons(uid, bs, mine) {
-  const g = gameFor(uid);
-  const server = data.gameReady ? ACHIEVEMENTS.map(([id, e, t, d]) => {
+  const g = gameFor(uid), color = colorOf(uid);
+  const tipAttrs = (name, desc, done, prog, label, extra = '') =>
+    `data-tip="${esc(name)}" data-name="${esc(name)}" data-desc="${esc(desc)}" data-done="${done ? 1 : 0}" data-prog="${prog}" data-label="${esc(label)}" data-extra="${esc(extra)}" data-color="${color}"`;
+  const server = data.gameReady ? ACHIEVEMENTS.map(([id, e, t, d, goal, unit]) => {
     const earned = g.awards[id], pinned = g.pinned.includes(id), can = mine && earned;
-    const tip = `${t} · ${d}${pinned ? ' · 📌 épinglé' : can ? ' · touche pour épingler' : ''}`;
-    return `<${can ? 'button' : 'span'} class="bdg ${earned ? '' : 'off'} ${pinned ? 'pinned' : ''}" ${can ? `data-pin="${id}" aria-pressed="${pinned}"` : ''} data-tip="${esc(tip)}" aria-label="${esc(t)}">${e}</${can ? 'button' : 'span'}>`;
+    const target = id === 'clean' ? Math.max(1, g.today_total || 1) : goal;
+    const value = Math.min(target, Math.max(0, g.values[id] || 0));
+    const extra = pinned ? '📌 épinglé' : can ? 'touche pour épingler' : '';
+    return `<${can ? 'button' : 'span'} class="bdg ${earned ? '' : 'off'} ${pinned ? 'pinned' : ''}" ${can ? `data-pin="${id}" aria-pressed="${pinned}"` : ''} ${tipAttrs(t, d, earned, value / target, `${value}/${target} ${unit}`, extra)} aria-label="${esc(t)}">${e}</${can ? 'button' : 'span'}>`;
   }) : [];
-  const local = bs.filter(b => !DOUBLONS.has(b.t)).map(b => `<span class="bdg ${b.ok ? '' : 'off'}" data-tip="${esc(b.t)} · ${esc(b.d)}" aria-label="${esc(b.t)}">${b.e}</span>`);
+  const local = bs.filter(b => !DOUBLONS.has(b.t)).map(b => {
+    const m = b.pg?.match(/^(\d+)\/(\d+)$/), pc = b.pg?.match(/^(\d+) %$/);
+    const prog = b.ok ? 1 : m ? Number(m[1]) / Number(m[2]) : pc ? Number(pc[1]) / 80 : 0;
+    const label = m ? `${m[1]}/${m[2]}` : pc ? `${pc[1]} % sur 80 %` : 'pas encore';
+    return `<span class="bdg ${b.ok ? '' : 'off'}" ${tipAttrs(b.t, b.d, b.ok, prog, label)} aria-label="${esc(b.t)}">${b.e}</span>`;
+  });
   return `<div class="badges">${[...server, ...local].join('')}</div>`;
 }
 
@@ -1150,10 +1166,19 @@ function bind() {
 const tipEl = document.getElementById('tip');
 function showTip(el) {
   const r = el.getBoundingClientRect();
-  tipEl.textContent = el.dataset.tip; tipEl.style.display = 'block';
+  const d = el.dataset;
+  if (d.prog !== undefined) { // badge: nom, condition et petite barre de progression
+    const pct = Math.round(Math.min(1, Number(d.prog)) * 100);
+    tipEl.className = 'rich';
+    tipEl.style.setProperty('--pc', d.color || 'var(--c0)');
+    tipEl.innerHTML = `<b>${esc(d.name)}</b><span class="d">${esc(d.desc)}</span>`
+      + (d.done === '1' ? `<span class="ok">✓ Obtenu${d.extra ? ' · ' + esc(d.extra) : ''}</span>`
+        : `<span class="bar"><i style="width:${pct}%"></i></span><span class="n"><span>${esc(d.label || '')}</span><span>${pct} %</span></span>`);
+  } else { tipEl.className = ''; tipEl.textContent = d.tip; }
+  tipEl.style.display = 'block';
   const w = tipEl.offsetWidth;
   tipEl.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
-  tipEl.style.top = Math.max(8, r.top - 36) + 'px';
+  tipEl.style.top = (r.top - tipEl.offsetHeight - 8 > 8 ? r.top - tipEl.offsetHeight - 8 : r.bottom + 8) + 'px';
 }
 document.addEventListener('mouseover', e => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); else tipEl.style.display = 'none'; });
 document.addEventListener('click', e => { const t = e.target.closest('[data-tip]'); if (t) showTip(t); });

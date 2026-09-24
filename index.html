@@ -30,6 +30,13 @@
       --glow1:rgba(31,175,122,.18); --glow2:rgba(144,133,233,.14);
     }
   }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg:#0e1116; --bg2:#131820; --card:rgba(24,29,37,.78); --card-solid:#181d25; --ink:#f1f3f6; --ink2:#bcc3cd; --mute:#838c98;
+    --line:rgba(255,255,255,.08); --cell:#222933; --box:#343c48; --shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 12px 32px rgba(0,0,0,.35);
+    --c0:#1faf7a; --c1:#9085e9; --c2:#e0692f; --c3:#3987e5; --c4:#d55181; --c5:#c98500;
+    --glow1:rgba(31,175,122,.18); --glow2:rgba(144,133,233,.14);
+  }
   * { box-sizing:border-box; }
   html { -webkit-text-size-adjust:100%; }
   body {
@@ -402,6 +409,10 @@
   .emoji-pop[hidden] { display:none; }
   .emoji-pop button { border:0; background:none; font-size:22px; line-height:1; padding:6px 0; border-radius:8px; cursor:pointer; }
   .emoji-pop button:hover { background:var(--card-solid); transform:scale(1.15); }
+  .theme-nav { flex-wrap:wrap; }
+  .theme-nav button { flex:1; padding:9px 10px !important; font-size:13px; }
+  .theme-hours { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:14px; color:var(--ink2); }
+  .theme-hours select { width:auto; padding:6px 10px; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -969,6 +980,22 @@ function chatTile() {
   </section>`;
 }
 
+// ---------- Thème: auto (système), clair, sombre, ou horaire (sombre entre deux heures) ----------
+const THEME_KEY = 'habitudes:theme';
+function themePref() { try { return { mode: 'auto', from: 20, to: 7, ...JSON.parse(localStorage.getItem(THEME_KEY) || '{}') }; } catch { return { mode: 'auto', from: 20, to: 7 }; } }
+function applyTheme() {
+  const p = themePref(), h = new Date().getHours();
+  const nuit = p.from === p.to ? false : p.from < p.to ? h >= p.from && h < p.to : h >= p.from || h < p.to;
+  const theme = p.mode === 'light' ? 'light' : p.mode === 'dark' ? 'dark' : p.mode === 'schedule' ? (nuit ? 'dark' : 'light') : null;
+  if (theme) document.documentElement.dataset.theme = theme; else delete document.documentElement.dataset.theme;
+  const dark = theme ? theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0e1116' : '#f3f2ef');
+}
+function setThemePref(patch) { try { localStorage.setItem(THEME_KEY, JSON.stringify({ ...themePref(), ...patch })); } catch {} applyTheme(); renderSettings(); }
+applyTheme();
+setInterval(applyTheme, 60000); // l'horaire bascule tout seul
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+
 // ---------- Chat du groupe: bulle en bas à droite, pastille rouge pour les nouveaux messages ----------
 let chatOpen = false;
 const chatSeenKey = () => `habitudes:chat-vu:${me.id}`;
@@ -1128,6 +1155,11 @@ function renderSettings() {
       <li><b>Android</b>: Chrome → menu ⋮ → « Installer l’application ».</li><li><b>Ordi</b>: icône « Installer » au bout de la barre d’adresse (Chrome, Edge) ou Fichier → « Ajouter au Dock » (Safari).</li></ol>
       <a class="btn" href="guide.html" style="display:inline-block;text-decoration:none">Guide complet, étape par étape</a>`,
     account: `
+      <h4 class="st-h">Thème <small style="text-transform:none;letter-spacing:0">(sur cet appareil)</small></h4>
+      <div class="view-nav theme-nav">${[['auto', '🖥️ Auto'], ['light', '☀️ Clair'], ['dark', '🌙 Sombre'], ['schedule', '⏰ Horaire']].map(([k, l]) => `<button data-theme-mode="${k}" aria-pressed="${themePref().mode === k}">${l}</button>`).join('')}</div>
+      ${themePref().mode === 'schedule' ? `<div class="theme-hours">🌙 Sombre de <select id="th-from" aria-label="Début du mode sombre">${[...Array(24).keys()].map(h => `<option value="${h}" ${h === themePref().from ? 'selected' : ''}>${h} h</option>`).join('')}</select>
+        à <select id="th-to" aria-label="Fin du mode sombre">${[...Array(24).keys()].map(h => `<option value="${h}" ${h === themePref().to ? 'selected' : ''}>${h} h</option>`).join('')}</select>, clair le reste du temps.</div>`
+        : `<p class="st-note">${themePref().mode === 'auto' ? 'Suit le réglage clair/sombre de ton téléphone ou de ton ordi.' : ''}</p>`}
       <h4 class="st-h">Affichage</h4>
       <div class="view-nav"><button data-view="group" aria-pressed="${preferredView !== 'personal'}">Tout le groupe</button><button data-view="personal" aria-pressed="${preferredView === 'personal'}">Seulement moi</button></div>
       <h4 class="st-h">Compte</h4>
@@ -1155,6 +1187,9 @@ function renderSettings() {
   });
   dlg.querySelectorAll('[data-frog-select]').forEach(sel => sel.onchange = () => chooseFrog(sel));
   dlg.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { setView(b.dataset.view); renderSettings(); });
+  dlg.querySelectorAll('[data-theme-mode]').forEach(b => b.onclick = () => setThemePref({ mode: b.dataset.themeMode }));
+  document.getElementById('th-from')?.addEventListener('change', e => setThemePref({ from: Number(e.target.value) }));
+  document.getElementById('th-to')?.addEventListener('change', e => setThemePref({ to: Number(e.target.value) }));
   document.getElementById('out')?.addEventListener('click', () => { dlg.close(); sb.auth.signOut(); });
   if (keepNew) { const n = document.getElementById('new'); if (n) { n.value = keepNew.v; if (keepNew.f) n.focus(); } }
 }

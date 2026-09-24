@@ -395,6 +395,13 @@
   @media (max-width:560px) { .chat-panel { width:calc(100vw - 16px) !important; height:calc(100dvh - 24px) !important; } }
   /* Cartes alignées: en-têtes de même hauteur */
   .ph { min-height:64px; } .ph h2 { flex-wrap:nowrap !important; overflow:hidden; } .ph .lvl { overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  /* Emojis du chat */
+  .emoji-btn { flex:none; width:42px; height:42px; border-radius:12px; border:1px solid var(--line); background:var(--cell); font-size:20px; cursor:pointer; padding:0; }
+  .emoji-btn:hover { background:var(--card-solid); }
+  .emoji-pop { display:grid; grid-template-columns:repeat(auto-fill, minmax(38px, 1fr)); gap:4px; padding:8px; margin-top:10px; border:1px solid var(--line); border-radius:14px; background:var(--cell); max-height:150px; overflow-y:auto; }
+  .emoji-pop[hidden] { display:none; }
+  .emoji-pop button { border:0; background:none; font-size:22px; line-height:1; padding:6px 0; border-radius:8px; cursor:pointer; }
+  .emoji-pop button:hover { background:var(--card-solid); transform:scale(1.15); }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -898,7 +905,20 @@ async function onNotifClick() {
   refreshNotif();
 }
 
+// Emojis du chat: les plus utiles pour se motiver (et se niaiser)
+const EMOJIS = ['😂','🤣','😅','😎','🥲','😤','😴','🤡','💀','🙏','👏','💪','🔥','💯','✅','❌','🏆','🥇','🐸','🧠','📚','🏋️','🏃','🥗','💧','😭','😡','🤝','👀','🫡','❤️','🚀','🎯','⏰','🌅','🦉'];
+
 function bindChat() {
+  const pop = document.getElementById('emoji-pop'), ebtn = document.getElementById('emoji-btn'), input = document.getElementById('chat-input');
+  if (pop && ebtn && input) {
+    ebtn.onclick = () => { pop.hidden = !pop.hidden; };
+    pop.querySelectorAll('[data-emoji]').forEach(b => b.onclick = () => {
+      const s = input.selectionStart ?? input.value.length, e = input.selectionEnd ?? s;
+      input.value = input.value.slice(0, s) + b.dataset.emoji + input.value.slice(e);
+      const pos = s + b.dataset.emoji.length; input.focus(); input.setSelectionRange(pos, pos);
+      input.dispatchEvent(new Event('input'));
+    });
+  }
   const chatForm = document.getElementById('chat-form'), chatInput = document.getElementById('chat-input');
   if (chatForm) {
     const grow = () => { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(120, chatInput.scrollHeight) + 'px'; };
@@ -908,7 +928,7 @@ function bindChat() {
       e.preventDefault();
       const body = chatInput.value.trim();
       if (!body) return;
-      chatInput.value = ''; grow();
+      chatInput.value = ''; grow(); document.getElementById('emoji-pop')?.setAttribute('hidden', '');
       const { error } = await sb.from('chat_messages').insert({ body });
       if (error) { chatInput.value = body; toast('Message pas envoyé. Réessaie.'); }
       reload(0);
@@ -992,7 +1012,8 @@ function chatCard() {
   return `<section class="card chat chat-panel" style="--pc:${colorOf(me.id)}" role="dialog" aria-label="Chat du groupe">
     <h3>💬 Chat du groupe <small>${data.chatReady ? 'en direct' : 'indisponible pour l’instant'}</small><button class="nc-x" id="chat-close" aria-label="Fermer le chat">✕</button></h3>
     <div class="chat-list" id="chat-list">${msgs || '<div class="empty chat-empty">Personne n’a encore écrit. Lance la conversation 👋</div>'}</div>
-    <form class="chat-form" id="chat-form"><textarea id="chat-input" rows="1" maxlength="500" placeholder="Écris au groupe… (Entrée pour envoyer)" ${data.chatReady ? '' : 'disabled'}></textarea><button class="btn" type="submit" ${data.chatReady ? '' : 'disabled'}>Envoyer</button></form>
+    <div class="emoji-pop" id="emoji-pop" hidden>${EMOJIS.map(e => `<button type="button" data-emoji="${e}" aria-label="${e}">${e}</button>`).join('')}</div>
+    <form class="chat-form" id="chat-form"><button type="button" class="emoji-btn" id="emoji-btn" aria-label="Ajouter un emoji" title="Emojis" ${data.chatReady ? '' : 'disabled'}>😊</button><textarea id="chat-input" rows="1" maxlength="500" placeholder="Écris au groupe… (Entrée pour envoyer)" ${data.chatReady ? '' : 'disabled'}></textarea><button class="btn" type="submit" ${data.chatReady ? '' : 'disabled'}>Envoyer</button></form>
   </section>`;
 }
 

@@ -331,6 +331,8 @@
   .hero-row .pod { justify-content:flex-start; gap:6px; }
   .hero-row .pod .p { padding:4px 10px 4px 4px; gap:6px; font-size:13px; }
   .hero-row .pod .p .av.s { width:22px; height:22px; font-size:11px; }
+  .pod .p { white-space:nowrap; }
+  @media (max-width:700px) { .hero-row .group { grid-template-columns:1fr; gap:12px; } }
   .hero-row .chat { display:flex; flex-direction:column; }
   .hero-row .chat-list { max-height:150px; flex:1; }
   @media (max-width:1000px) { .hero-row { grid-template-columns:1fr; } .hero-row .chat-list { max-height:min(320px, 45vh); } }

@@ -278,6 +278,30 @@
   .chat-form { display:flex; gap:8px; margin-top:10px; align-items:flex-end; }
   .chat-form textarea { flex:1; min-width:0; resize:none; max-height:120px; padding:10px 14px; border-radius:14px; border:1px solid var(--line); background:color-mix(in srgb, var(--card-solid) 70%, transparent); color:var(--ink); font:inherit; font-size:14px; line-height:1.4; }
   .chat-form textarea:focus { outline:2px solid color-mix(in srgb, var(--pc) 50%, transparent); outline-offset:1px; }
+  /* Moins de bruit */
+  .deadline { padding:9px 16px !important; margin-bottom:14px !important; border-radius:14px !important; flex-direction:row !important; align-items:center !important; gap:12px; font-size:13px; }
+  .deadline .dl-label { color:var(--ink2); font-weight:600; }
+  .deadline .dl-clock { color:var(--mute); font-size:12px; white-space:nowrap; }
+  .deadline .dl-clock b { font-size:16px; color:var(--ink); margin-right:4px; }
+  .deadline.urgent .dl-clock b { color:var(--c2); }
+  .deadline.complete .dl-label { color:var(--c0); }
+  .setup { padding:12px 16px; }
+  .setup h3 { font-size:14px; margin:0; }
+  .setup > p { display:none; }
+  .setup .row { margin-top:6px; }
+  .setup ol { margin-top:10px; }
+  .lvl { font-family:Inter, sans-serif; font-size:11px; font-weight:600; letter-spacing:0; padding:2px 8px; border-radius:999px; white-space:nowrap;
+         background:color-mix(in srgb, var(--pc) 14%, transparent); color:color-mix(in srgb, var(--pc) 70%, var(--ink)); cursor:default; }
+  .ph h2 { flex-wrap:wrap; row-gap:4px; }
+  .game-note { display:none !important; }
+  .completion-bubble { padding:8px 12px !important; margin-bottom:12px !important; }
+  .completion-bubble p { font-size:13px !important; }
+  .extra { padding:12px 20px; margin-bottom:14px; }
+  .extra > button.sect { border-top:0; padding:4px 0; margin:0; }
+  .extra .fold { margin-top:10px; }
+  .extra .fold > .card { border:0; padding:0; margin:0; background:none; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .extra .fold > .card > h3 { display:none; }
+  .duo { align-items:start; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -621,15 +645,13 @@ const ACHIEVEMENTS = [
 ];
 let xpPeriod='week';
 function gameFor(uid) { return (data.game||[]).find(g=>g.user_id===uid)||{xp:0,peak_xp:0,week:0,month:0,previous_week:0,values:{},awards:{},pinned:[],today_total:0}; }
-function xpPanel(uid) {
- if (!data.gameReady) return '<section class="xp-panel"><strong>XP et achievements</strong><p>Activation du suivi en attente. Tes habitudes restent disponibles.</p><button class="link" data-retry-game>Réessayer</button></section>';
- const g=gameFor(uid),r=rankFor(g.peak_xp),next=r.next;
- const value=next?Math.max(0,g.xp-r.threshold):1,max=next?next[0]-r.threshold:1;
- return `<section class="xp-panel" ${uid===me.id?'data-my-rank':''}><div class="xp-heading"><span>${r.emoji} ${r.name}</span><span class="num">${g.xp} XP</span></div>
- <progress class="game-progress" value="${Math.min(value,max)}" max="${max}" aria-label="Progression du rang"></progress>
- <p>${next?`${Math.max(0,next[0]-g.xp)} XP avant ${next[2]} ${next[1]} · objectif ${next[0]} XP`:'Rang maximal atteint. Chaque habitude continue de compter !'}</p>
- <details><summary class="game-note">Voir les 10 rangs et les règles XP</summary><p>${RANKS.map(([xp,n,e])=>`${e} ${n} : ${xp} XP`).join(' · ')}</p><p>1 XP par habitude · 2 XP au total pour le Frog · aucun bonus de badge. Décocher retire les XP; les rangs et badges gagnés restent acquis. Toutes les habitudes comptent : leur nombre influence le classement.</p></details>
- <div class="pinned-badges">${g.pinned.map(id=>{const a=ACHIEVEMENTS.find(a=>a[0]===id);return a?`<span>${a[1]} ${a[2]}</span>`:''}).join('')}</div></section>`;
+// Niveau à côté du nom: rang, numéro de niveau et XP vers le prochain niveau.
+function levelPill(uid) {
+  if (!data.gameReady) return '';
+  const g = gameFor(uid), r = rankFor(g.peak_xp), lvl = RANKS.findIndex(x => x[1] === r.name) + 1;
+  const xp = r.next ? `${g.xp}/${r.next[0]} XP` : `${g.xp} XP`;
+  const tip = r.next ? `Niveau ${lvl} · ${Math.max(0, r.next[0] - g.xp)} XP avant ${r.next[2]} ${r.next[1]} · 1 XP par habitude, 2 pour le Frog` : `Niveau ${lvl}, le maximum`;
+  return `<span class="lvl" ${uid === me.id ? 'data-my-rank' : ''} data-tip="${esc(tip)}">${r.emoji} ${r.name} · Nv ${lvl} · <span class="num">${xp}</span></span>`;
 }
 // Badges en icônes seulement: couleur si obtenu, gris sinon; nom et condition au survol, sans chiffres.
 // Les achievements (vérifiés par le serveur) passent d'abord; on retire de la liste locale ceux qui les répètent.
@@ -664,17 +686,13 @@ function xpLeaderboard() {
 }
 
 // Sections repliables: chaque carte garde son propre état (par personne et par section), sur cet appareil.
-function shown(key, uid) {
-  try {
-    const own = localStorage.getItem(`habitudes:show:${uid}:${key}`);
-    if (own !== null) return own !== '0';
-    return localStorage.getItem(`habitudes:show:${key}`) !== '0'; // ancien réglage commun, comme point de départ
-  } catch { return true; }
+function shown(key, uid) { // fermé par défaut: l'essentiel (stats, habitudes) reste seul visible
+  try { return localStorage.getItem(`habitudes:ouvert:${uid}:${key}`) === '1'; } catch { return false; }
 }
 function toggleFold(key, uid) {
   const on = !shown(key, uid);
-  try { localStorage.setItem(`habitudes:show:${uid}:${key}`, on ? '1' : '0'); } catch {}
-  const card = app.querySelector(`.person[data-uid="${uid}"]`);
+  try { localStorage.setItem(`habitudes:ouvert:${uid}:${key}`, on ? '1' : '0'); } catch {}
+  const card = app.querySelector(`[data-uid="${uid}"]`);
   if (!card) return;
   card.querySelectorAll(`[data-fold="${key}"]`).forEach(b => b.setAttribute('aria-expanded', on));
   card.querySelectorAll(`[data-fold-body="${key}"]`).forEach(b => b.classList.toggle('hidden', !on));
@@ -722,11 +740,9 @@ function midnightCountdown(now = new Date()) {
 function deadlineBanner(done, total, now = new Date()) {
   const timer = midnightCountdown(now);
   const remaining = Math.max(0, total - done), complete = total > 0 && remaining === 0;
-  const title = complete ? 'Bravo, tes habitudes du jour sont faites !' : total ? 'Encore un peu de temps pour toi' : 'Une nouvelle habitude commence aujourd’hui';
-  const message = complete ? 'Nouvelle journée à minuit.' : total ? `${remaining} habitude${remaining > 1 ? 's' : ''} à compléter avant minuit.` : 'Ajoute ta première habitude pour commencer.';
+  const label = complete ? '✓ Journée faite' : total ? `${remaining} habitude${remaining > 1 ? 's' : ''} à faire` : 'Ajoute une habitude pour commencer';
   return `<section id="deadline" class="deadline ${complete ? 'complete' : ''} ${remaining > 0 && timer.seconds <= 7200 ? 'urgent' : ''}" data-remaining="${remaining}" aria-label="Temps restant aujourd’hui">
-    <div><strong>${title}</strong><p>${message}</p></div>
-    <div class="deadline-clock"><b id="midnight-timer" class="num" role="timer" aria-live="off" aria-label="Temps restant jusqu’à minuit">${timer.text}</b><small>avant minuit · heure locale</small></div>
+    <span class="dl-label">${label}</span><span class="dl-clock"><b id="midnight-timer" class="num" role="timer" aria-live="off" aria-label="Temps restant jusqu’à minuit">${timer.text}</b> avant minuit</span>
   </section>`;
 }
 let renderedDay = null;
@@ -1075,7 +1091,7 @@ function render() {
   const medals = ['🥇', '🥈', '🥉'];
   const top = `
     <div class="top">
-      <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1><div class="tag">On se tient accountable.</div></div>
+      <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1></div>
       <div class="meta">${notifButton()}<span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div>
     </div>`;
   const navigation = `<nav class="view-nav" aria-label="Affichage des habitudes">
@@ -1144,11 +1160,10 @@ function render() {
       <section class="card person ${mine?'me':''}" data-uid="${p.id}" style="--pc:${pc}">
         <div class="ph">
           <span class="av">${initial(p.name)}</span>
-          <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
+          <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}${levelPill(p.id)}</h2><div class="sub">${sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
         ${latestNoteBubble(p.id)}
-        ${xpPanel(p.id)}
         <div class="kpis">
           <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
           <div class="kpi" data-tip="${rec && rec.b ? `Plus longue série: ${esc(rec.h.name)}` : 'Aucune série encore'}"><div class="k">Record</div><div class="v num">${rec ? rec.b : 0}<small> j</small></div><div class="t">${rec && rec.b ? esc(rec.h.name) : '—'}</div></div>
@@ -1156,10 +1171,10 @@ function render() {
           <div class="kpi" data-tip="Journées où tout a été coché, sur 30 jours"><div class="k">Parfaites</div><div class="v num">${perf30}</div><div class="t">sur 30 j</div></div>
           <div class="kpi" data-tip="Frogs mangés au total · 1 maximum par jour"><div class="k">🐸 Frogs</div><div class="v num">${frogEaten.total}</div><div class="t">${frogEaten.recent} sur 30 j</div></div>
         </div>
-        <div class="sect"><span>Cette semaine</span><span>${habits.length}/${MAX_HABITUDES} habitudes</span></div>
+        <div class="sect"><span>Cette semaine</span></div>
         <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
           ${mine ? (habits.length >= MAX_HABITUDES
-            ? `<div class="add-full">🔒 ${MAX_HABITUDES}/${MAX_HABITUDES} habitudes, c'est le maximum. Retire-en une (✕) pour en ajouter une autre.</div>`
+            ? ''
             : `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>`) : ''}
         </div>
         ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog', p.id)}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
@@ -1175,6 +1190,7 @@ function render() {
   }).join('');
 
   const lb = xpLeaderboard();
+  const extra = (key, title, html) => `<section class="card extra" data-uid="groupe-${key}"><button class="sect" data-fold="${key}" aria-expanded="${shown(key, 'groupe-' + key)}"><span>${title}</span>${'<span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span>'}</button><div class="fold ${shown(key, 'groupe-' + key) ? '' : 'hidden'}" data-fold-body="${key}">${html}</div></section>`;
 
   // Jour de la semaine, tout le monde côte à côte
   const withHabits = visiblePeople.filter(p => M.habitsOf(p.id).length);
@@ -1193,7 +1209,7 @@ function render() {
   // Fil d'activité
   const names = new Map(data.profiles.map(x => [x.id, x.name]));
   const hname = new Map(data.habits.map(h => [h.id, h.name]));
-  const recent = data.checks.filter(c => c.created_at && (!personal || c.user_id === me.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 12);
+  const recent = data.checks.filter(c => c.created_at && (!personal || c.user_id === me.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 6);
   const feed = `
     <section class="card">
       <h3>${personal ? 'Mon activité' : 'Activité'} <small>en direct</small></h3>
@@ -1206,8 +1222,8 @@ function render() {
   const cl = document.getElementById('chat-list'), ci = document.getElementById('chat-input');
   const chatKeep = { v: ci?.value || '', f: document.activeElement === ci, bottom: !cl || cl.scrollHeight - cl.scrollTop - cl.clientHeight < 40, top: cl?.scrollTop || 0 };
   app.innerHTML = top + setupCard() + deadlineBanner(mineToday.done, mineToday.total) + navigation + (personal
-    ? `<div class="personal-layout">${personalIntro}${chatCard()}${lb}<div class="people personal">${cards}</div><div style="margin-bottom:18px">${dow}</div>${feed}</div>`
-    : groupSummary + chatCard() + `<div class="people">${cards}</div><div class="duo">${lb}${dow}</div>` + feed);
+    ? `<div class="personal-layout">${personalIntro}${chatCard()}<div class="people personal">${cards}</div>${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}${extra('feed', '⚡ Activité récente', feed)}</div>`
+    : groupSummary + chatCard() + `<div class="people">${cards}</div><div class="duo">${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}</div>` + extra('feed', '⚡ Activité récente', feed));
   if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
   app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
   { const l = document.getElementById('chat-list'), i = document.getElementById('chat-input');

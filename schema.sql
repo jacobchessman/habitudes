@@ -17,6 +17,7 @@ create table if not exists public.checks (
   habit_id uuid not null references public.habits on delete cascade,
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   day date not null,
+  created_at timestamptz not null default now(),
   primary key (habit_id, day)
 );
 

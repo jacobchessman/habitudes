@@ -58,6 +58,17 @@
 
   .card { background:var(--card); border:1px solid var(--line); border-radius:22px; padding:20px; box-shadow:var(--shadow); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
 
+  .view-nav { display:flex; gap:6px; padding:5px; border:1px solid var(--line); border-radius:16px; width:fit-content; background:var(--card); margin:0 0 18px; }
+  .view-nav button { border:0; border-radius:11px; padding:11px 18px; background:transparent; cursor:pointer; color:var(--ink2); font-weight:600; }
+  .view-nav button[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+  .view-nav button:focus-visible { outline:2px solid var(--c0); outline-offset:3px; }
+  .personal-intro { margin-bottom:18px; display:flex; align-items:center; gap:18px; }
+  .personal-intro h2 { margin:0 0 5px; font-family:"Space Grotesk",sans-serif; font-size:26px; }
+  .personal-intro p { margin:0; color:var(--ink2); }
+  .people.personal { grid-template-columns:minmax(0,1fr); }
+  .personal-layout { max-width:820px; margin:0 auto; }
+  @media(max-width:520px) { .personal-intro { align-items:flex-start; } .personal-intro h2 { font-size:22px; } }
+
   /* Bandeau du groupe */
   .group { display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center; margin-bottom:18px; }
   .group .big { display:flex; align-items:center; gap:16px; }
@@ -379,10 +390,25 @@ function ring(done, total, size = 64, stroke = 7) {
     <div class="in"><b class="num">${total ? `${done}/${total}` : '—'}</b><span>auj.</span></div></div>`;
 }
 
+// Préférence locale par compte : aucun changement d'affichage imposé aux autres.
+let preferredView = 'group';
+function readView(uid) {
+  try { return localStorage.getItem(`habitudes:view:${uid}`) === 'personal' ? 'personal' : 'group'; }
+  catch { return 'group'; }
+}
+function setView(view) {
+  preferredView = view === 'personal' ? 'personal' : 'group';
+  try { localStorage.setItem(`habitudes:view:${me.id}`, preferredView); } catch {}
+  render();
+  app.querySelector(`[data-view="${preferredView}"]`)?.focus();
+}
+
 // ---------- Rendu ----------
 function render() {
   const M = model();
   const ps = people();
+  const personal = preferredView === 'personal';
+  const visiblePeople = personal ? ps.filter(p => p.id === me.id) : ps;
   const todayKey = ymd(new Date());
 
   // Groupe
@@ -393,15 +419,25 @@ function render() {
     <div class="top">
       <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1><div class="tag">On se tient accountable.</div></div>
       <div class="meta"><span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div>
-    </div>
-    <section class="card group">
+    </div>`;
+  const navigation = `<nav class="view-nav" aria-label="Affichage des habitudes">
+    <button data-view="personal" aria-pressed="${personal}">Mon espace</button>
+    <button data-view="group" aria-pressed="${!personal}">Le groupe</button>
+  </nav>`;
+  const mineToday = M.day(me.id, todayKey);
+  const myName = ps.find(p => p.id === me.id)?.name || 'toi';
+  const personalIntro = `<section class="card personal-intro" style="--pc:${colorOf(me.id)}">
+    ${ring(mineToday.done, mineToday.total, 76, 8)}
+    <div><h2>Ton espace, ${esc(myName)}</h2><p>${mineToday.total ? `${mineToday.done} sur ${mineToday.total} habitudes cochées aujourd’hui.` : 'Commence par ajouter une habitude qui compte pour toi.'}</p><p style="font-size:12px;margin-top:6px">Tes habitudes restent visibles par le groupe.</p></div>
+  </section>`;
+  const groupSummary = `<section class="card group">
       <div class="big">${ring(gd, gt, 76, 8)}<div><div class="k">Le groupe aujourd'hui</div><div class="v num">${gt ? Math.round(gd / gt * 100) : 0}<small> %</small></div><div class="tag" style="font-size:13px">${gd} coché${gd > 1 ? 's' : ''} sur ${gt}</div></div></div>
       <div class="pod">${board.slice(0, 3).map((o, i) => `<div class="p" style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} sur 7 jours"><span class="av s">${initial(o.p.name)}</span><b>${medals[i]} ${esc(o.p.name)}</b><span class="num">${pct(o.r)}</span></div>`).join('')}</div>
     </section>`;
 
   // Une carte par personne
   const days = lastDays(7);
-  const cards = ps.map(p => {
+  const cards = visiblePeople.map(p => {
     const mine = p.id === me.id, pc = colorOf(p.id);
     const habits = M.habitsOf(p.id);
     const t = M.day(p.id, todayKey);
@@ -476,7 +512,7 @@ function render() {
     </section>`;
 
   // Jour de la semaine, tout le monde côte à côte
-  const withHabits = ps.filter(p => M.habitsOf(p.id).length);
+  const withHabits = visiblePeople.filter(p => M.habitsOf(p.id).length);
   const wds = withHabits.map(p => ({ p, w: M.weekday(p.id) }));
   const order = [1,2,3,4,5,6,0];
   let groupBest = null;
@@ -486,23 +522,25 @@ function render() {
       <h3>Par jour de la semaine <small>12 semaines</small></h3>
       ${wds.length ? `<div class="dow">${order.map(i => `<div class="c"><div class="bars">${wds.map(x => `<i style="--pc:${colorOf(x.p.id)};height:${(x.w[i] || 0) * 100}%" data-tip="${esc(x.p.name)} · ${JOURS_LONG[i]} · ${x.w[i] === null ? 'pas de données' : pct(x.w[i])}"></i>`).join('')}</div><span class="lab">${JOURS[i]}</span></div>`).join('')}</div>
       <div class="keys">${wds.map(x => `<span style="--pc:${colorOf(x.p.id)}">${esc(x.p.name)}</span>`).join('')}</div>
-      <div class="insight">${groupBest !== null ? `Le groupe est le plus solide le <b>${JOURS_LONG[groupBest]}</b>.` : 'Pas encore assez de données.'}</div>` : '<div class="empty">Pas encore de données.</div>'}
+      <div class="insight">${groupBest !== null ? `${personal ? 'Ton meilleur jour est le' : 'Le groupe est le plus solide le'} <b>${JOURS_LONG[groupBest]}</b>.` : 'Pas encore assez de données.'}</div>` : '<div class="empty">Pas encore de données.</div>'}
     </section>`;
 
   // Fil d'activité
   const names = new Map(data.profiles.map(x => [x.id, x.name]));
   const hname = new Map(data.habits.map(h => [h.id, h.name]));
-  const recent = data.checks.filter(c => c.created_at).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 12);
+  const recent = data.checks.filter(c => c.created_at && (!personal || c.user_id === me.id)).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, 12);
   const feed = `
     <section class="card">
-      <h3>Activité <small>en direct</small></h3>
+      <h3>${personal ? 'Mon activité' : 'Activité'} <small>en direct</small></h3>
       ${recent.length ? `<ul class="feed">${recent.map(c => { const late = c.day !== ymd(new Date(c.created_at)); const dd = new Date(c.day + 'T12:00');
         return `<li style="--pc:${colorOf(c.user_id)}"><span class="av s">${initial(names.get(c.user_id))}</span><span class="txt"><b>${esc(names.get(c.user_id) || '?')}</b> a coché <b>${esc(hname.get(c.habit_id) || '?')}</b>${late ? ` <span class="late">pour ${JOURS[dd.getDay()]} ${dd.getDate()}</span>` : ''}</span><span class="when">${ago(c.created_at)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Rien encore. Le premier qui coche!</div>'}
     </section>`;
 
   // Conserver le focus et le texte du champ « nouvelle habitude » à travers les re-rendus
   const inp = document.getElementById('new'), keep = inp ? { v: inp.value, f: document.activeElement === inp } : null;
-  app.innerHTML = top + `<div class="people">${cards}</div>` + `<div class="duo">${lb}${dow}</div>` + feed;
+  app.innerHTML = top + navigation + (personal
+    ? `<div class="personal-layout">${personalIntro}<div class="people personal">${cards}</div><div style="margin-bottom:18px">${dow}</div>${feed}</div>`
+    : groupSummary + `<div class="people">${cards}</div><div class="duo">${lb}${dow}</div>` + feed);
   if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
   app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
   bind();
@@ -521,6 +559,7 @@ function celebrate() {
 }
 
 function bind() {
+  app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('out').onclick = () => sb.auth.signOut();
   const add = async () => {
     const input = document.getElementById('new'); const name = input.value.trim();
@@ -567,6 +606,7 @@ document.addEventListener('scroll', () => tipEl.style.display = 'none', true);
 
 async function enter(session) {
   me = session.user;
+  preferredView = readView(me.id);
   const name = me.user_metadata?.name || me.email.split('@')[0];
   await sb.from('profiles').upsert({ id: me.id, name }, { onConflict: 'id', ignoreDuplicates: true });
   await load();

@@ -353,16 +353,16 @@
     .completion-bubble { margin:0 0 10px !important; }
   }
   /* Bulle de chat */
-  .chat-fab { position:fixed; right:20px; bottom:20px; z-index:40; width:58px; height:58px; border-radius:50%; border:0; cursor:pointer; font-size:26px;
+  .chat-fab { position:fixed; right:22px; bottom:22px; z-index:40; width:72px; height:72px; border-radius:50%; border:0; cursor:pointer; font-size:34px;
               background:var(--c0); color:#fff; box-shadow:0 10px 28px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; transition:transform .15s; }
   .chat-fab:hover { transform:scale(1.06); }
   .chat-fab.open { font-size:20px; background:var(--card-solid); color:var(--ink); border:1px solid var(--line); }
-  .chat-fab .badge { position:absolute; top:-3px; right:-3px; min-width:22px; height:22px; padding:0 6px; border-radius:11px; background:#e5484d; color:#fff;
-                     font:700 12px/22px Inter, sans-serif; box-shadow:0 0 0 2px var(--bg); animation:pop .35s cubic-bezier(.3,1.6,.5,1); }
-  .chat-panel { position:fixed; right:20px; bottom:90px; z-index:39; width:min(380px, calc(100vw - 24px)); height:min(520px, calc(100dvh - 120px));
+  .chat-fab .badge { position:absolute; top:-2px; right:-2px; min-width:26px; height:26px; padding:0 7px; border-radius:13px; background:#e5484d; color:#fff;
+                     font:700 14px/26px Inter, sans-serif; box-shadow:0 0 0 2px var(--bg); animation:pop .35s cubic-bezier(.3,1.6,.5,1); }
+  .chat-panel { position:fixed; right:22px; bottom:108px; z-index:39; width:min(380px, calc(100vw - 24px)); height:min(520px, calc(100dvh - 120px));
                 display:flex; flex-direction:column; margin:0; box-shadow:0 24px 60px rgba(0,0,0,.45); background:var(--card-solid); }
   .chat-panel .chat-list { flex:1; max-height:none; }
-  @media (max-width:520px) { .chat-panel { right:12px; left:12px; width:auto; bottom:84px; height:calc(100dvh - 110px); } .chat-fab { right:14px; bottom:14px; } }
+  @media (max-width:520px) { .chat-panel { right:12px; left:12px; width:auto; bottom:92px; height:calc(100dvh - 118px); } .chat-fab { right:16px; bottom:16px; width:64px; height:64px; font-size:30px; } }
   main { padding-bottom:100px; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
@@ -1401,7 +1401,7 @@ function bind() {
   document.getElementById('gear')?.addEventListener('click', () => openSettings());
   app.querySelectorAll('[data-open-settings]').forEach(b => b.onclick = () => openSettings(b.dataset.openSettings));
   bindChat();
-  app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold, b.closest('.person')?.dataset.uid));
+  app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold, b.closest('[data-uid]')?.dataset.uid)); // carte d'une personne ou section du bas
   const add = async () => {
     const input = document.getElementById('new'); const name = input.value.trim();
     if (!name) return;

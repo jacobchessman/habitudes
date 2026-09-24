@@ -111,10 +111,15 @@
   .editor .cancel { background:var(--cell); color:var(--ink); }
   .editor .btn { white-space:normal; }
   /* Sections repliables */
-  button.sect { width:100%; background:none; border:0; padding:4px 0; margin:0 0 8px; cursor:pointer; font:inherit; font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; text-align:left; }
-  button.sect:hover { color:var(--ink2); }
-  button.sect .chev { display:inline-block; transition:transform .2s; margin-left:6px; font-size:13px; }
-  button.sect[aria-expanded="false"] .chev { transform:rotate(-90deg); }
+  button.sect { width:100%; display:flex; justify-content:space-between; align-items:center; gap:10px; background:none; border:0; border-top:1px solid var(--line); padding:12px 0 4px; margin:0 0 8px; cursor:pointer; font:inherit; font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; text-align:left; }
+  button.sect:hover { color:var(--ink); }
+  button.sect .chev { display:inline-flex; align-items:center; gap:5px; flex:none; padding:5px 10px 5px 12px; border-radius:999px; border:1px solid var(--line); background:var(--cell); color:var(--ink2); font-size:12px; font-weight:600; letter-spacing:0; text-transform:none; transition:background .15s, color .15s; }
+  button.sect .chev::before { content:"Masquer"; }
+  button.sect[aria-expanded="false"] .chev::before { content:"Afficher"; }
+  button.sect .chev svg { width:15px; height:15px; transform:rotate(180deg); transition:transform .2s; }
+  button.sect[aria-expanded="false"] .chev svg { transform:none; }
+  button.sect:hover .chev { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  button.sect:focus-visible { outline:2px solid var(--c3); outline-offset:3px; border-radius:6px; }
   button.sect[aria-expanded="false"] { margin-bottom:14px; }
   .fold.hidden { display:none; }
   .bdg .pg { display:none; }
@@ -594,14 +599,6 @@ function xpLeaderboard() {
  <p class="game-note">Semaine du lundi au dimanche · heure de Montréal. 👑 Gagnant de la semaine précédente; les ex æquo partagent le rang.</p>
  ${!data.gameReady?'<p class="game-note">Classement disponible après activation.</p>':rows.length?rows.map((o,i)=>{const rank=1+rows.filter(x=>x.g[xpPeriod]>o.g[xpPeriod]).length,r=rankFor(o.g.peak_xp);return `<div class="xp-row"><span>${o.g[xpPeriod]>0&&rank<=3?['🥇','🥈','🥉'][rank-1]:rank}</span><div><b>${esc(o.p.name)}${champion>0&&o.g.previous_week===champion?' 👑':''}</b><small>${r.emoji} ${r.name}</small></div><b class="num">${o.g[xpPeriod]} XP</b></div>`}).join(''):'<p class="game-note">Le classement attend sa première personne.</p>'}</section>`;
 }
-function legacyBadgeCard(b) {
- let current=b.ok?1:0,goal=1;
- const match=b.pg?.match(/^(\d+)\/(\d+)$/);
- if(match) {current=Number(match[1]);goal=Number(match[2]);}
- else if(b.pg?.includes('%')) {current=Number.parseInt(b.pg)||0;goal=80;}
- if(b.ok) current=goal;
- return `<article class="achievement ${b.ok?'earned':''}"><strong>${b.e} ${esc(b.t)}</strong><p>${esc(b.d)}</p><progress class="game-progress" value="${Math.min(current,goal)}" max="${goal}" aria-label="${esc(b.t)}"></progress><div class="counter">${current}/${goal} · ${Math.min(100,Math.round(current/goal*100))} %</div><small>${b.ok?'✓ Objectif atteint':'En cours'}</small></article>`;
-}
 
 // Sections repliables: le choix vaut pour toutes les cartes, sur cet appareil.
 function shown(key) { try { return localStorage.getItem(`habitudes:show:${key}`) !== '0'; } catch { return true; } }
@@ -1012,18 +1009,18 @@ function render() {
         <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
           ${mine ? `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
         </div>
-        ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog')}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev">▾</span></button>
+        ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog')}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
         <div class="fold ${shown('frog') ? '' : 'hidden'}" data-fold-body="frog">${frogCard(p, mine, habits)}</div>` : ''}
-        <button class="sect" data-fold="heat" aria-expanded="${shown('heat')}"><span>30 dernières semaines</span><span class="chev">▾</span></button>
+        <button class="sect" data-fold="heat" aria-expanded="${shown('heat')}"><span>30 dernières semaines</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
         <div class="fold ${shown('heat') ? '' : 'hidden'}" data-fold-body="heat">
         <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
         <div class="heat-foot"><span>${data.checks.filter(c => c.user_id === p.id).length} cochés au total</span><span class="legend">moins <i style="background:var(--cell)"></i><i style="background:color-mix(in srgb, var(--pc) 30%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 55%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 78%, var(--cell))"></i><i style="background:var(--pc)"></i> tout</span></div>
         </div>
-        <button class="sect" data-fold="achievements" aria-expanded="${shown('achievements')}"><span>Achievements · ${data.gameReady ? Object.keys(gameFor(p.id).awards).length : '—'}/12</span><span class="chev">▾</span></button>
+        <button class="sect" data-fold="achievements" aria-expanded="${shown('achievements')}"><span>Achievements · ${data.gameReady ? Object.keys(gameFor(p.id).awards).length : '—'}/12</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
         <div class="fold ${shown('achievements') ? '' : 'hidden'}" data-fold-body="achievements">${achievementCards(p.id)}</div>
-        <button class="sect" data-fold="badges" aria-expanded="${shown('badges')}"><span>Badges · ${bs.filter(b => b.ok).length}/${bs.length}</span><span class="chev">▾</span></button>
+        <button class="sect" data-fold="badges" aria-expanded="${shown('badges')}"><span>Badges</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
         <div class="fold ${shown('badges') ? '' : 'hidden'}" data-fold-body="badges">
-        <div class="achievement-grid">${bs.map(legacyBadgeCard).join('')}</div>
+        <div class="badges">${bs.map(b => `<span class="bdg ${b.ok ? '' : 'off'}" data-tip="${esc(b.t)} · ${esc(b.d)}">${b.e}</span>`).join('')}</div>
         </div>
       </section>`;
   }).join('');

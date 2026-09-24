@@ -84,6 +84,16 @@
   .notif.off { background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600; }
   .meta { flex-wrap:wrap; justify-content:flex-end; }
 
+  .setup { margin-bottom:18px; border-color:color-mix(in srgb, var(--c3) 40%, var(--line)); background:color-mix(in srgb, var(--c3) 8%, var(--card)); }
+  .setup h3 { margin:0 0 4px; }
+  .setup p { margin:0 0 12px; color:var(--ink2); font-size:14px; }
+  .setup ol { margin:0 0 14px; padding:0; list-style:none; counter-reset:s; display:flex; flex-direction:column; gap:10px; }
+  .setup li { counter-increment:s; display:flex; gap:12px; align-items:flex-start; font-size:15px; }
+  .setup li::before { content:counter(s); flex:none; width:26px; height:26px; border-radius:50%; background:var(--c3); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .setup .ico { display:inline-flex; vertical-align:-5px; padding:2px 6px; border-radius:7px; background:var(--cell); margin:0 2px; }
+  .setup .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .setup .go { --pc:var(--c3); font-size:16px; padding:12px 20px; }
+
   /* Bandeau du groupe */
   .group { display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center; margin-bottom:18px; }
   .group .big { display:flex; align-items:center; gap:16px; }
@@ -154,6 +164,8 @@
   .box.pop { animation:pop .35s cubic-bezier(.3,1.6,.5,1); }
   @keyframes pop { 0% { transform:scale(.7); } 100% { transform:scale(1); } }
   .box.today:not(.on) { border-style:dashed; }
+  .box.locked { opacity:.55; }
+  .box.locked:not(.on) { background:repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--box) 45%, transparent) 4px 5px); }
   @media (max-width:520px) {
     .habits { --bx:clamp(26px, 9vw, 32px); }
     .hrow:not(.head) { grid-template-columns:repeat(7, var(--bx)); justify-content:space-between; row-gap:6px; }
@@ -326,11 +338,13 @@ function model() {
   const byHabit = new Map();
   for (const c of data.checks) { if (!byHabit.has(c.habit_id)) byHabit.set(c.habit_id, []); byHabit.get(c.habit_id).push(c.day); }
   const startOf = h => ymd(new Date(h.created_at));
-  const active = (h, k) => k >= startOf(h) || set.has(h.id + k);
-  const habitsOf = uid => data.habits.filter(h => h.user_id === uid);
+  const endOf = h => h.archived_at ? ymd(new Date(h.archived_at)) : null;
+  const active = (h, k) => (k >= startOf(h) && (!endOf(h) || k < endOf(h))) || set.has(h.id + k);
+  // all = true inclut les habitudes archivées (pour l'historique); sinon seulement celles en cours
+  const habitsOf = (uid, all) => data.habits.filter(h => h.user_id === uid && (all || !h.archived_at));
   function day(uid, k) {
     let done = 0, total = 0;
-    for (const h of habitsOf(uid)) if (active(h, k)) { total++; if (set.has(h.id + k)) done++; }
+    for (const h of habitsOf(uid, true)) if (active(h, k)) { total++; if (set.has(h.id + k)) done++; }
     return { done, total };
   }
   function streak(h) {
@@ -349,7 +363,7 @@ function model() {
     let done = 0, total = 0;
     for (let i = from; i < to; i++) {
       const k = ymd(addDays(new Date(), -i));
-      for (const h of only ? [only] : habitsOf(uid)) if (active(h, k)) { total++; if (set.has(h.id + k)) done++; }
+      for (const h of only ? [only] : habitsOf(uid, true)) if (active(h, k)) { total++; if (set.has(h.id + k)) done++; }
     }
     return total ? done / total : null;
   }
@@ -374,7 +388,7 @@ function model() {
 }
 
 function badgesFor(uid, M) {
-  const habits = M.habitsOf(uid);
+  const habits = M.habitsOf(uid, true);
   const mine = data.checks.filter(c => c.user_id === uid);
   const bestAny = Math.max(0, ...habits.map(M.best));
   const hour = c => c.created_at && c.day === ymd(new Date(c.created_at)) ? new Date(c.created_at).getHours() : null;
@@ -477,14 +491,36 @@ async function refreshNotif() {
     notif = sub && Notification.permission === 'granted' ? 'on' : 'off';
     if (notif === 'on') saveSub(sub); // rattache l'appareil au compte connecté
   }
-  const el = document.getElementById('notif');
-  if (el) { el.outerHTML = notifButton(); document.getElementById('notif')?.addEventListener('click', onNotifClick); }
-  else if (me) render(); // render() rebranche le bouton
+  if (me) render(); // le bouton et la carte d'installation dépendent de l'état
 }
+const inAppBrowser = isIOS && (/GSA|FBAN|FBAV|Instagram|Line|Snapchat|LinkedIn|Messenger/.test(navigator.userAgent) || !/Safari/.test(navigator.userAgent));
+const SHARE = '<span class="ico"><svg width="14" height="16" viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V1M3.5 4.5 7 1l3.5 3.5M4 7H2v10h10V7h-2"/></svg></span>';
+function setupCard() {
+  let later = 0; try { later = Number(localStorage.getItem('habitudes:notif-plus-tard')) || 0; } catch {}
+  if (Date.now() < later) return '';
+  const guide = `<a class="link" href="guide.html${notif === 'denied' ? '#bloquees' : ''}">Guide complet</a>`;
+  const skip = '<button class="link" id="setup-later">Plus tard</button>';
+  if (notif === 'ios' && inAppBrowser) return `<section class="card setup"><h3>📲 Ouvre ce lien dans Safari</h3>
+    <p>Tu es dans le navigateur d'une autre appli (Gmail, Instagram…). Sur iPhone, les notifications marchent seulement depuis Safari.</p>
+    <ol><li><span>Touche <b>•••</b> ou ${SHARE} dans cette fenêtre</span></li><li><span>Choisis <b>« Ouvrir dans Safari »</b></span></li><li><span>Suis les étapes qui vont apparaître là</span></li></ol>
+    <div class="row">${guide}${skip}</div></section>`;
+  if (notif === 'ios') return `<section class="card setup"><h3>📲 Reçois les rappels sur ton iPhone</h3>
+    <p>Sur iPhone, il faut d'abord installer l'appli sur ton écran d'accueil. Ça prend 20 secondes.</p>
+    <ol><li><span>Touche ${SHARE} <b>Partager</b>, en bas de Safari</span></li><li><span>Défile et choisis <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b></span></li><li><span>Ferme Safari et ouvre <b>Habitudes</b> depuis ton écran d'accueil</span></li><li><span>Là, touche <b>Activer</b> puis <b>Autoriser</b></span></li></ol>
+    <div class="row">${guide}${skip}</div></section>`;
+  if (notif === 'off') return `<section class="card setup"><h3>🔔 Dernière étape: active les notifications</h3>
+    <p>Rappel à 21 h s'il te reste des habitudes, et une alerte quand quelqu'un finit sa journée. Ton appareil va demander la permission: touche <b>Autoriser</b>.</p>
+    <div class="row"><button class="btn go" id="setup-go">Activer les notifications</button>${guide}${skip}</div></section>`;
+  if (notif === 'denied') return `<section class="card setup"><h3>🔕 Les notifications sont bloquées</h3>
+    <p>Tu as refusé la permission. Pour la redonner, le guide explique où la trouver selon ton appareil.</p>
+    <div class="row">${guide}${skip}</div></section>`;
+  return '';
+}
+
 function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2700); }
 async function onNotifClick() {
-  if (notif === 'ios') return alert('Sur iPhone, les notifications marchent seulement depuis l’appli installée:\n\n1. Dans Safari, touche Partager\n2. « Sur l’écran d’accueil »\n3. Ouvre Habitudes depuis l’écran d’accueil et reviens ici.');
-  if (notif === 'denied') return alert('Les notifications sont bloquées pour ce site. Réactive-les dans les réglages du navigateur, puis recharge la page.');
+  if (notif === 'ios') { location.href = 'guide.html'; return; }
+  if (notif === 'denied') { location.href = 'guide.html#bloquees'; return; }
   if (notif === 'on') {
     const { data, error } = await sb.functions.invoke('push', { body: { action: 'test' } });
     return toast(error ? 'Oups, l’essai n’est pas parti' : data?.sent ? 'Notification d’essai envoyée 🔔' : 'Aucun appareil trouvé');
@@ -560,7 +596,8 @@ function render() {
       <div class="hrow">
         <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${mine ? `<button class="del" data-del="${h.id}" title="Retirer">✕</button>` : ''}</div>
         ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
-          return `<button class="box ${on?'on':''} ${k===todayKey?'today':''}" ${mine?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${mine ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}"`}>${CHECK}</button>`; }).join('')}
+          const open = mine && k === todayKey; // le passé est figé (règle aussi appliquée par la base)
+          return `<button class="box ${on?'on':''} ${k===todayKey?'today':''} ${mine && k < todayKey ? 'locked' : ''}" ${open?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${open ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}${mine && k < todayKey ? ' · 🔒 journée terminée' : ''}"`}>${CHECK}</button>`; }).join('')}
       </div>`).join('');
 
     // Calendrier: 20 semaines, colonnes = semaines qui commencent le dimanche
@@ -638,7 +675,7 @@ function render() {
 
   // Conserver le focus et le texte du champ « nouvelle habitude » à travers les re-rendus
   const inp = document.getElementById('new'), keep = inp ? { v: inp.value, f: document.activeElement === inp } : null;
-  app.innerHTML = top + deadlineBanner(mineToday.done, mineToday.total) + navigation + (personal
+  app.innerHTML = top + setupCard() + deadlineBanner(mineToday.done, mineToday.total) + navigation + (personal
     ? `<div class="personal-layout">${personalIntro}<div class="people personal">${cards}</div><div style="margin-bottom:18px">${dow}</div>${feed}</div>`
     : groupSummary + `<div class="people">${cards}</div><div class="duo">${lb}${dow}</div>` + feed);
   if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
@@ -661,6 +698,8 @@ function celebrate() {
 function bind() {
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('notif')?.addEventListener('click', onNotifClick);
+  document.getElementById('setup-go')?.addEventListener('click', onNotifClick);
+  document.getElementById('setup-later')?.addEventListener('click', () => { try { localStorage.setItem('habitudes:notif-plus-tard', Date.now() + 3 * 864e5); } catch {} render(); });
   document.getElementById('out').onclick = () => sb.auth.signOut();
   const add = async () => {
     const input = document.getElementById('new'); const name = input.value.trim();
@@ -675,10 +714,10 @@ function bind() {
     const habit_id = b.dataset.h, day = b.dataset.d, on = !b.classList.contains('on');
     const before = model().day(me.id, ymd(new Date()));
     b.classList.toggle('on', on); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
-    const { error } = on
+    const res = on
       ? await sb.from('checks').insert({ habit_id, day })
-      : await sb.from('checks').delete().match({ habit_id, day });
-    if (error) { alert(error.message); b.classList.toggle('on', !on); return; }
+      : await sb.from('checks').delete().match({ habit_id, day }).select();
+    if (res.error || (!on && !res.data?.length)) { b.classList.toggle('on', !on); toast('🔒 Cette journée est terminée'); reload(0); return; }
     if (on) data.checks.push({ habit_id, day, user_id: me.id, created_at: new Date().toISOString() });
     else data.checks = data.checks.filter(c => !(c.habit_id === habit_id && c.day === day));
     const after = model().day(me.id, ymd(new Date()));
@@ -686,8 +725,8 @@ function bind() {
     reload(400);
   });
   app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
-    if (!confirm('Retirer cette habitude et tout son historique?')) return;
-    const { error } = await sb.from('habits').delete().eq('id', b.dataset.del);
+    if (!confirm('Retirer cette habitude? Elle disparaît de ta semaine, mais son historique reste dans tes stats.')) return;
+    const { error } = await sb.from('habits').update({ archived_at: new Date().toISOString() }).eq('id', b.dataset.del);
     if (error) alert(error.message); else reload(0);
   });
 }

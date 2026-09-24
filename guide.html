@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guide des notifications</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0e1116">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg:#f3f2ef; --card:#fff; --ink:#15171b; --ink2:#454a53; --mute:#7c818a; --line:rgba(20,22,27,.1); --cell:#ebe9e3; --accent:#2a78d6; --ok:#138a5e; --warn:#b07400;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg:#0e1116; --card:#181d25; --ink:#f1f3f6; --ink2:#bcc3cd; --mute:#838c98; --line:rgba(255,255,255,.09); --cell:#252c36; --accent:#3987e5; --ok:#1faf7a; --warn:#c98500;
+    }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  main { max-width:680px; margin:0 auto; padding:28px 16px 80px; }
+  a { color:var(--accent); }
+  .back { font-size:14px; color:var(--mute); text-decoration:none; }
+  h1 { font-family:"Space Grotesk", Inter, sans-serif; font-size:32px; line-height:1.1; letter-spacing:-.02em; margin:14px 0 8px; }
+  .lead { color:var(--ink2); margin:0 0 22px; }
+  h2 { font-family:"Space Grotesk", Inter, sans-serif; font-size:21px; margin:0 0 4px; }
+  h3 { font-size:16px; margin:22px 0 8px; }
+  .sub { color:var(--mute); font-size:14px; margin:0 0 16px; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
+  .tabs button { font:inherit; font-size:15px; font-weight:600; border:1px solid var(--line); background:var(--card); color:var(--ink2); padding:9px 16px; border-radius:999px; cursor:pointer; }
+  .tabs button[aria-selected="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:22px; margin-bottom:16px; }
+  .panel { display:none; } .panel.on { display:block; }
+  ol.steps { list-style:none; margin:0; padding:0; counter-reset:s; }
+  ol.steps > li { counter-increment:s; position:relative; padding:0 0 18px 44px; }
+  ol.steps > li:last-child { padding-bottom:0; }
+  ol.steps > li::before { content:counter(s); position:absolute; left:0; top:-1px; width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff; font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  ol.steps > li:not(:last-child)::after { content:""; position:absolute; left:14px; top:34px; bottom:4px; width:2px; background:var(--line); }
+  ol.steps b { font-weight:600; }
+  .hint { display:block; color:var(--mute); font-size:14px; margin-top:3px; }
+  .ico { display:inline-flex; align-items:center; vertical-align:-4px; padding:2px 7px; border-radius:7px; background:var(--cell); margin:0 2px; font-size:14px; }
+  .note { border-left:3px solid var(--warn); padding:10px 14px; border-radius:0 12px 12px 0; background:color-mix(in srgb, var(--warn) 10%, transparent); font-size:15px; margin:16px 0 0; }
+  .done { border-left-color:var(--ok); background:color-mix(in srgb, var(--ok) 10%, transparent); }
+  .what { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; font-size:15px; }
+  .what span:nth-child(odd) { font-size:20px; }
+  details { border-top:1px solid var(--line); padding:12px 0; }
+  details:first-of-type { border-top:0; padding-top:0; }
+  summary { cursor:pointer; font-weight:600; }
+  details p, details ul { color:var(--ink2); font-size:15px; margin:8px 0 0; }
+  details ul { padding-left:20px; }
+  .cta { display:inline-block; margin-top:6px; background:var(--ink); color:var(--bg); padding:12px 20px; border-radius:12px; font-weight:600; text-decoration:none; }
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">← Retour à Habitudes</a>
+  <h1>Activer les notifications</h1>
+  <p class="lead">Deux minutes, une seule fois par appareil. Choisis le tien: la bonne section est déjà ouverte.</p>
+
+  <section class="card">
+    <h2>Ce que tu vas recevoir</h2>
+    <div class="what" style="margin-top:12px">
+      <span>⏰</span><span><b>21 h</b>: un rappel s'il te reste des habitudes à cocher, sinon rien.</span>
+      <span>🔥</span><span>Si une série de 3 jours ou plus est sur le point de casser, le rappel te le dit.</span>
+      <span>✨</span><span>Quand quelqu'un du groupe finit toutes ses habitudes de la journée.</span>
+    </div>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" data-t="iphone">iPhone</button>
+    <button role="tab" data-t="android">Android</button>
+    <button role="tab" data-t="mac">Mac</button>
+    <button role="tab" data-t="windows">Windows</button>
+  </div>
+
+  <section class="card panel" id="iphone">
+    <h2>iPhone</h2>
+    <p class="sub">Il faut iOS 16.4 ou plus récent (Réglages → Général → Informations → Version iOS).</p>
+    <ol class="steps">
+      <li><b>Ouvre le lien dans Safari.</b><span class="hint">Pas dans Gmail, Instagram ou Messenger: leur navigateur ne peut pas installer l'appli. Si tu y es, touche <span class="ico">•••</span> puis « Ouvrir dans Safari ».</span></li>
+      <li>Touche le bouton <b>Partager</b> <span class="ico"><svg width="13" height="16" viewBox="0 0 14 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11V1M3.5 4.5 7 1l3.5 3.5M4 7H2v10h10V7h-2"/></svg></span><span class="hint">Le carré avec une flèche vers le haut, en bas de l'écran (ou en haut à droite sur iPad).</span></li>
+      <li>Défile la liste et touche <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b>.<span class="hint">Tu le vois pas? Défile tout en bas, touche « Modifier les actions » et ajoute-le.</span></li>
+      <li><b>Ferme Safari</b> et ouvre <b>Habitudes</b> depuis ton écran d'accueil.<span class="hint">C'est l'étape que tout le monde manque: les notifs ne marchent QUE depuis l'icône, pas depuis Safari.</span></li>
+      <li>Connecte-toi, puis touche <b>« Activer les notifications »</b>.</li>
+      <li>L'iPhone demande la permission: touche <b>Autoriser</b>.</li>
+    </ol>
+    <p class="note done">✅ Une notification d'essai arrive tout de suite. Le bouton en haut affiche alors « Notifs activées ».</p>
+  </section>
+
+  <section class="card panel" id="android">
+    <h2>Android</h2>
+    <p class="sub">Avec Chrome.</p>
+    <ol class="steps">
+      <li>Ouvre le lien dans <b>Chrome</b> et connecte-toi.</li>
+      <li>Touche <b>« Activer les notifications »</b>, puis <b>Autoriser</b>.</li>
+      <li>Facultatif: menu <span class="ico">⋮</span> → <b>« Installer l'application »</b> pour l'avoir sur ton écran d'accueil.</li>
+    </ol>
+    <p class="note done">✅ Une notification d'essai arrive tout de suite.</p>
+  </section>
+
+  <section class="card panel" id="mac">
+    <h2>Mac</h2>
+    <p class="sub">Avec Chrome, Safari ou l'appli Habitudes sur ton Bureau.</p>
+    <ol class="steps">
+      <li>Ouvre Habitudes et touche <b>« Activer les notifications »</b>.</li>
+      <li>Le navigateur demande la permission: clique <b>Autoriser</b>.</li>
+      <li>Si rien n'arrive: <b>Réglages Système → Notifications</b>, trouve <b>Google Chrome</b> (ou Safari) et active <b>« Autoriser les notifications »</b>.</li>
+    </ol>
+    <p class="note">Sur ordi, tu reçois les notifs seulement quand le navigateur roule (même en arrière-plan). Pour ne rien manquer, installe-la aussi sur ton téléphone.</p>
+  </section>
+
+  <section class="card panel" id="windows">
+    <h2>Windows</h2>
+    <p class="sub">Avec Chrome ou Edge.</p>
+    <ol class="steps">
+      <li>Ouvre le lien, connecte-toi, touche <b>« Activer les notifications »</b> puis <b>Autoriser</b>.</li>
+      <li>Facultatif: l'icône <b>Installer</b> <span class="ico">⊕</span> au bout de la barre d'adresse la met dans ton menu Démarrer.</li>
+      <li>Si rien n'arrive: <b>Paramètres → Système → Notifications</b> et active Chrome ou Edge.</li>
+    </ol>
+  </section>
+
+  <section class="card" id="bloquees">
+    <h2>Ça marche pas?</h2>
+    <details open>
+      <summary>J'ai touché « Refuser » ou le bouton dit « Notifs bloquées »</summary>
+      <ul>
+        <li><b>iPhone</b>: Réglages → Notifications → <b>Habitudes</b> → Autoriser les notifications.</li>
+        <li><b>Chrome (ordi ou Android)</b>: touche le cadenas <span class="ico">🔒</span> à gauche de l'adresse → Notifications → <b>Autoriser</b>, puis recharge la page.</li>
+        <li><b>Safari sur Mac</b>: Safari → Réglages → Sites web → Notifications → mets le site sur <b>Autoriser</b>.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Sur iPhone, je ne vois pas de bouton « Activer »</summary>
+      <p>Tu es encore dans Safari. Ferme-le, et ouvre l'icône <b>Habitudes</b> sur ton écran d'accueil (étape 4).</p>
+    </details>
+    <details>
+      <summary>L'essai est arrivé, mais pas le rappel de 21 h</summary>
+      <p>C'est normal si toutes tes habitudes étaient cochées: le rappel n'est envoyé que s'il en reste. Vérifie aussi que le mode Concentration (Ne pas déranger, Sommeil) ne les cache pas.</p>
+    </details>
+    <details>
+      <summary>J'ai changé de téléphone ou réinstallé l'appli</summary>
+      <p>Refais les étapes sur le nouvel appareil. Chaque appareil s'active une fois.</p>
+    </details>
+    <a class="cta" href="./">Ouvrir Habitudes</a>
+  </section>
+</main>
+<script>
+  const ua = navigator.userAgent;
+  const guess = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) ? 'iphone'
+    : /Android/.test(ua) ? 'android' : /Mac/.test(ua) ? 'mac' : /Win/.test(ua) ? 'windows' : 'iphone';
+  function show(t) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('on', p.id === t));
+    document.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t));
+  }
+  document.querySelectorAll('[data-t]').forEach(b => b.onclick = () => show(b.dataset.t));
+  show(guess);
+</script>
+</body>
+</html>

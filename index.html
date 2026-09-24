@@ -77,7 +77,7 @@
   @media (max-width:640px) { .two { grid-template-columns:1fr; } }
   .mb { margin-bottom:14px; }
 
-  .heat-wrap { overflow-x:auto; padding-bottom:2px; }
+  .heat-wrap { overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
   .heat { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 12px); gap:3px; width:max-content; }
   .heat i { width:12px; height:12px; border-radius:3px; background:var(--h0); display:block; }
   .heat i.l1 { background:var(--h1); } .heat i.l2 { background:var(--h2); } .heat i.l3 { background:var(--h3); } .heat i.l4 { background:var(--h4); }
@@ -373,7 +373,7 @@ function renderStats() {
     <div class="tiles">
       <div class="tile"><div class="k">Série en cours</div><div class="v">${cur ? cur.s : 0} 🔥</div><div class="s">${cur && cur.s ? esc(cur.h.name) : 'coche une journée pour partir'}</div></div>
       <div class="tile"><div class="k">Record</div><div class="v">${rec ? rec.s : 0}</div><div class="s">${rec && rec.s ? esc(rec.h.name) : '—'}</div></div>
-      <div class="tile"><div class="k">Réussite 30 jours</div><div class="v">${pct(r30)}</div><div class="s">${trend || 'pas assez d’historique'}</div></div>
+      <div class="tile"><div class="k">Réussite 30 jours</div><div class="v">${habits.length ? pct(r30) : '—'}</div><div class="s">${trend || 'pas assez d’historique'}</div></div>
       <div class="tile"><div class="k">Journées parfaites</div><div class="v">${perfect30}</div><div class="s">sur 30 jours · série ${M.perfectStreak(p.id)}</div></div>
       <div class="tile"><div class="k">Total cochés</div><div class="v">${total}</div><div class="s">${plural(habits.length, 'habitude')}</div></div>
     </div>`;
@@ -381,11 +381,11 @@ function renderStats() {
   // Calendrier (26 semaines, colonnes = semaines qui commencent le dimanche)
   const weeks = 26;
   const end = new Date(); const start = addDays(end, -(weeks - 1) * 7 - end.getDay());
-  let cells = '', months = '', lastMonth = -1;
+  let cells = '', months = '';
   for (let w = 0; w < weeks; w++) {
-    const first = addDays(start, w * 7);
-    months += `<span>${first.getMonth() !== lastMonth ? MOIS[first.getMonth()] : ''}</span>`;
-    lastMonth = first.getMonth();
+    // Le mois s'affiche sur la semaine qui contient son 1er jour
+    const firstOfMonth = [0,1,2,3,4,5,6].map(d => addDays(start, w * 7 + d)).find(x => x.getDate() === 1);
+    months += `<span>${firstOfMonth && w < weeks - 1 ? MOIS[firstOfMonth.getMonth()] : ''}</span>`;
     for (let d = 0; d < 7; d++) {
       const day = addDays(start, w * 7 + d), k = ymd(day);
       if (k > todayKey) { cells += '<i class="fut"></i>'; continue; }
@@ -459,6 +459,7 @@ function renderStats() {
 }
 
 function bindStats() {
+  const hw = app.querySelector('.heat-wrap'); if (hw) hw.scrollLeft = hw.scrollWidth; // ouvrir sur aujourd'hui
   app.querySelectorAll('[data-who]').forEach(b => b.onclick = () => { who = b.dataset.who; pref('who', who); render(); });
 }
 

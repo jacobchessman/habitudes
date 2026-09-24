@@ -84,7 +84,9 @@
   .notif.off { background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600; }
   .meta { flex-wrap:wrap; justify-content:flex-end; }
 
-  .habit-action { flex:none; border:0; border-radius:7px; background:var(--cell); padding:3px 6px; cursor:pointer; color:var(--ink2); }
+  .habit-action { flex:none; border:0; border-radius:7px; background:var(--cell); padding:3px 6px; cursor:pointer; color:var(--ink2); opacity:0; transition:opacity .15s; }
+  .hrow:hover .habit-action, .habit-action:focus-visible { opacity:1; }
+  @media (hover:none) { .habit-action { opacity:.6; } }
   .habit-action:focus-visible { outline:2px solid var(--c0); outline-offset:2px; }
   .frog { border:1px solid color-mix(in srgb,var(--c0) 30%,var(--line)); border-radius:16px; padding:16px; margin-bottom:18px; background:color-mix(in srgb,var(--c0) 6%,var(--card-solid)); }
   .frog-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }

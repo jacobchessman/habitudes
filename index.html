@@ -389,7 +389,8 @@
   /* Chat agrandi: grande fenêtre au centre */
   .chat-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:38; backdrop-filter:blur(3px); }
   .chat-panel { position:fixed !important; left:50% !important; top:50% !important; right:auto !important; bottom:auto !important; transform:translate(-50%, -50%);
-                width:min(760px, calc(100vw - 32px)) !important; height:min(82vh, 820px) !important; z-index:39; }
+                width:min(760px, calc(100vw - 32px)) !important; height:min(82vh, 820px) !important; z-index:39; display:flex !important; flex-direction:column; }
+  .chat-panel .chat-list { flex:1; min-height:0; }
   .chat-panel h3 { display:flex; align-items:center; gap:10px; } .chat-panel h3 .nc-x { margin-left:auto; }
   @media (max-width:560px) { .chat-panel { width:calc(100vw - 16px) !important; height:calc(100dvh - 24px) !important; } }
   /* Cartes alignées: en-têtes de même hauteur */

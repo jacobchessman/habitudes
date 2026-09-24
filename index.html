@@ -356,12 +356,26 @@
   .rank-up {animation:rankPulse 1s ease 2;} @keyframes rankPulse {50% {box-shadow:0 0 0 5px color-mix(in srgb,var(--pc) 25%,transparent);}}
   @media(prefers-reduced-motion:reduce) {.rank-up {animation:none}.game-progress::-webkit-progress-value {transition:none}}
 
+
+  .completion-bubble {position:relative;margin:3px 0 18px 8px;padding:13px 16px;background:var(--card-solid);border:1px solid color-mix(in srgb,var(--pc) 25%,var(--line));border-radius:19px;box-shadow:0 4px 14px rgba(0,0,0,.05);max-width:300px;}
+  .completion-bubble::before {content:'';position:absolute;top:-6px;left:12px;width:10px;height:10px;background:var(--card-solid);border-top:1px solid color-mix(in srgb,var(--pc) 25%,var(--line));border-left:1px solid color-mix(in srgb,var(--pc) 25%,var(--line));transform:rotate(45deg);}
+  .completion-bubble p {margin:0;font-size:14px;line-height:1.45;overflow-wrap:anywhere;white-space:pre-wrap;}
+  .completion-bubble small {display:block;font-size:11px;color:var(--mute);margin-top:6px;overflow-wrap:anywhere;}
+  .completion-bubble .note-actions {display:flex;gap:12px;margin-top:8px;font-size:11px;}
+  .note-button {border:0;background:transparent;color:var(--pc);padding:3px 5px;border-radius:6px;cursor:pointer;flex:none;font-size:13px;}
+  .note-button:focus-visible {outline:2px solid var(--pc);outline-offset:2px;}
+  .feed .completion-bubble {display:block;margin:10px 0 3px;padding:10px 13px;max-width:300px;}
+  .note-editor textarea {display:block;resize:vertical;min-height:100px;width:100%;padding:14px;border:1px solid var(--box);border-radius:15px;background:var(--bg);color:var(--ink);font:inherit;line-height:1.5;}
+  .note-meter {display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--mute);margin-top:8px;}
+  .note-editor .over {color:var(--c2);}.note-editor .editor-actions {flex-wrap:wrap;}
+
 </style>
 </head>
 <body>
 <main id="app"></main>
 <div id="tip"></div>
 <dialog id="edit-dialog" class="editor" aria-labelledby="editor-title"></dialog>
+<dialog id="note-dialog" class="editor note-editor" aria-labelledby="note-title"></dialog>
 <dialog id="notif-center" class="editor nc" aria-labelledby="nc-title"></dialog>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -369,7 +383,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
-let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogChoices: [], frogStats: [], frogReady: false, game: [], gameReady: false }, channel = null, live = false;
+let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogChoices: [], frogStats: [], frogReady: false, game: [], gameReady: false, notes: [], notesReady: false }, channel = null, live = false;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -431,7 +445,7 @@ async function load() {
   const sequence = ++loadSequence, uid = me?.id;
   if (!uid) return;
   const today = ymd(new Date());
-  const [p, h, c, f, fc, fs, g] = await Promise.all([
+  const [p, h, c, f, fc, fs, g, notes] = await Promise.all([
     sb.from('profiles').select('*'),
     sb.from('habits').select('*').order('created_at'),
     sb.from('checks').select('*').gte('day', ymd(addDays(new Date(), -400))),
@@ -439,12 +453,13 @@ async function load() {
     sb.from('frog_choices').select('*'),
     sb.rpc('frog_stats', { p_day: today }),
     sb.rpc('gamification_snapshot'),
+    sb.from('completion_notes').select('*').gte('created_at', new Date(Date.now()-30*864e5).toISOString()).order('created_at', {ascending:false}).limit(500),
   ]);
   if (sequence !== loadSequence || saving || me?.id !== uid) return;
   if (p.error || h.error || c.error) { toast('Chargement impossible. Réessaie dans un instant.'); return; }
   const oldRank = data.gameReady ? rankFor(gameFor(uid).peak_xp).name : null;
   data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [],
-    frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error, game: g.data || [], gameReady: !g.error };
+    frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error, game: g.data || [], gameReady: !g.error, notes: notes.data || [], notesReady: !notes.error };
   render();
   if (oldRank && data.gameReady && rankFor(gameFor(uid).peak_xp).name !== oldRank) {
     const panel = app.querySelector('[data-my-rank]'); panel?.classList.add('rank-up');
@@ -945,6 +960,56 @@ function openEditor(kind, habitId) {
   if (rename) input.select();
 }
 
+
+// ---------- Notes facultatives après une habitude complétée ----------
+const noteFor = (habitId,day) => (data.notes||[]).find(n=>n.habit_id===habitId && n.day===day);
+const cleanNote = value => value.replace(/\s+/gu,' ').trim();
+const noteLength = value => Array.from(cleanNote(value)).length;
+function completionBubble(n,actions=false) {
+ if(!n) return '';
+ const habit=data.habits.find(h=>h.id===n.habit_id),own=me?.id===n.user_id;
+ return `<div class="completion-bubble"><p>${esc(n.body)}</p><small>✓ ${esc(habit?.name||'Habitude complétée')} · ${ago(n.created_at)}</small>
+ ${actions&&own?`<div class="note-actions">${n.day===ymd(new Date())?`<button class="link" data-note-h="${n.habit_id}" data-note-day="${n.day}">Modifier</button>`:''}<button class="link" data-note-remove="${n.habit_id}" data-note-day="${n.day}">Retirer</button></div>`:''}</div>`;
+}
+function latestNoteBubble(uid) {
+ const cutoff=Date.now()-864e5;
+ const n=(data.notes||[]).filter(n=>n.user_id===uid && new Date(n.created_at).getTime()>cutoff).sort((a,b)=>b.created_at.localeCompare(a.created_at))[0];
+ return completionBubble(n,true);
+}
+function openNote(habitId,day) {
+ const dialog=document.getElementById('note-dialog');
+ if(dialog.open || !me) return;
+ const habit=data.habits.find(h=>h.id===habitId && h.user_id===me.id);
+ if(!habit || !data.checks.some(c=>c.habit_id===habitId && c.day===day && c.user_id===me.id)) return;
+ const existing=noteFor(habitId,day),owner=me.id;
+ dialog.innerHTML=`<form id="note-form"><h2 id="note-title">💬 Une petite note ?</h2><p><b>${esc(habit.name)}</b> est complétée. Partage un mot avec le groupe, si tu veux.</p>
+ <label for="note-text">Ton message</label><textarea id="note-text" rows="3" placeholder="Ex. : Pas facile aujourd’hui, mais c’est fait 💪" aria-describedby="note-count note-visibility">${esc(existing?.body||'')}</textarea>
+ <div class="note-meter"><span id="note-visibility">Visible par le groupe · bulle 24 h</span><span id="note-count" aria-live="polite">0/60</span></div>
+ <p>La note reste aussi liée à ta coche dans l’activité récente.</p>
+ <div id="note-error" class="editor-error" role="alert">${data.notesReady?'':'Les notes attendent leur activation. Ta coche est déjà enregistrée.'}</div>
+ <div class="editor-actions"><button class="btn cancel" type="button" id="note-later">${existing?'Annuler':'Pas maintenant'}</button><button class="btn" id="note-share" type="submit">${existing?'Enregistrer':'Partager'}</button></div></form>`;
+ const input=document.getElementById('note-text'),share=document.getElementById('note-share'),counter=document.getElementById('note-count'),error=document.getElementById('note-error');
+ let busy=false;
+ const meter=()=>{const length=noteLength(input.value);counter.textContent=`${length}/60`;counter.classList.toggle('over',length>60);share.disabled=busy||!data.notesReady||length===0||length>60;};
+ input.oninput=meter;meter();
+ document.getElementById('note-later').onclick=()=>dialog.close();
+ dialog.oncancel=e=>{if(busy)e.preventDefault();};
+ document.getElementById('note-form').onsubmit=async e=>{
+  e.preventDefault();if(busy||share.disabled)return;
+  if(me?.id!==owner || day!==ymd(new Date())) {error.textContent='La journée ou le compte a changé. Ferme cette fenêtre et recharge.';return;}
+  busy=true;meter();input.disabled=true;document.getElementById('note-later').disabled=true;error.textContent='';
+  try {await saveChange(async()=>{const result=await sb.rpc('set_completion_note',{p_habit_id:habitId,p_day:day,p_body:cleanNote(input.value)});if(result.error) throw result.error;});dialog.close();toast('💬 Note partagée avec le groupe');}
+  catch(err) {error.textContent=err.message||'Impossible de partager. Ton texte est conservé ici.';}
+  finally {busy=false;input.disabled=false;document.getElementById('note-later').disabled=false;meter();}
+ };
+ dialog.showModal();input.focus();
+}
+async function removeNote(habitId,day,button) {
+ if(saving)return;button.disabled=true;
+ try {await saveChange(async()=>{const {error}=await sb.rpc('set_completion_note',{p_habit_id:habitId,p_day:day,p_body:''});if(error)throw error;});toast('Note retirée');}
+ catch(err){toast(err.message||'Impossible de retirer la note.');} finally{button.disabled=false;}
+}
+
 // ---------- Rendu ----------
 function render() {
   const M = model();
@@ -1001,7 +1066,7 @@ function render() {
     const head = `<div class="hrow head"><span></span>${days.map(d => `<span class="${ymd(d)===todayKey?'today':''}">${JOURS[d.getDay()]}<br>${d.getDate()}</span>`).join('')}</div>`;
     const rows = streaks.map(({ h, s }) => `
       <div class="hrow">
-        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${frogFor(p.id)?.habit_id === h.id ? '<span class="chip" title="The Frog">🐸</span>' : ''}${mine ? `<button class="habit-action" data-rename="${h.id}" aria-label="Renommer ${esc(h.name)}" title="Renommer">✎</button><button class="del" data-del="${h.id}" aria-label="Retirer ${esc(h.name)}" title="Retirer">✕</button>` : ''}</div>
+        <div class="hname"><span class="n" data-tip="${esc(h.name)} · record ${M.best(h)} · ${M.rateRange(p.id, 0, 30, h) === null ? '—' : pct(M.rateRange(p.id, 0, 30, h))} sur 30 j">${esc(h.name)}</span>${s ? `<span class="chip ${s >= 7 ? 'hot' : ''}">🔥 ${s}</span>` : ''}${frogFor(p.id)?.habit_id === h.id ? '<span class="chip" title="The Frog">🐸</span>' : ''}${mine && M.set.has(h.id+todayKey) ? `<button class="note-button" data-note-h="${h.id}" data-note-day="${todayKey}" aria-label="${noteFor(h.id,todayKey)?'Modifier la note':'Ajouter une note'} : ${esc(h.name)}" title="${noteFor(h.id,todayKey)?'Modifier la note':'Ajouter une note'}">💬</button>` : ''}${mine ? `<button class="habit-action" data-rename="${h.id}" aria-label="Renommer ${esc(h.name)}" title="Renommer">✎</button><button class="del" data-del="${h.id}" aria-label="Retirer ${esc(h.name)}" title="Retirer">✕</button>` : ''}</div>
         ${days.map(d => { const k = ymd(d), on = M.set.has(h.id + k);
           const open = mine && k === todayKey; // le passé est figé (règle aussi appliquée par la base)
           return `<button class="box ${on?'on':''} ${k===todayKey?'today':''} ${mine && k < todayKey ? 'locked' : ''}" ${open?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}" ${open ? '' : `data-tip="${esc(h.name)} · ${JOURS[d.getDay()]} ${d.getDate()} · ${on ? 'fait' : 'pas fait'}${mine && k < todayKey ? ' · 🔒 journée terminée' : ''}"`}>${CHECK}</button>`; }).join('')}
@@ -1031,6 +1096,7 @@ function render() {
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
+        ${latestNoteBubble(p.id)}
         ${xpPanel(p.id)}
         <div class="kpis">
           <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
@@ -1079,7 +1145,7 @@ function render() {
     <section class="card">
       <h3>${personal ? 'Mon activité' : 'Activité'} <small>en direct</small></h3>
       ${recent.length ? `<ul class="feed">${recent.map(c => { const late = c.day !== ymd(new Date(c.created_at)); const dd = new Date(c.day + 'T12:00');
-        return `<li style="--pc:${colorOf(c.user_id)}"><span class="av s">${initial(names.get(c.user_id))}</span><span class="txt"><b>${esc(names.get(c.user_id) || '?')}</b> a coché <b>${esc(hname.get(c.habit_id) || '?')}</b>${late ? ` <span class="late">pour ${JOURS[dd.getDay()]} ${dd.getDate()}</span>` : ''}</span><span class="when">${ago(c.created_at)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Rien encore. Le premier qui coche!</div>'}
+        return `<li style="--pc:${colorOf(c.user_id)}"><span class="av s">${initial(names.get(c.user_id))}</span><div class="txt"><b>${esc(names.get(c.user_id) || '?')}</b> a coché <b>${esc(hname.get(c.habit_id) || '?')}</b>${late ? ` <span class="late">pour ${JOURS[dd.getDay()]} ${dd.getDate()}</span>` : ''}${completionBubble(noteFor(c.habit_id,c.day))}</div><span class="when">${ago(c.created_at)}</span></li>`; }).join('')}</ul>` : '<div class="empty">Rien encore. Le premier qui coche!</div>'}
     </section>`;
 
   // Conserver le focus et le texte du champ « nouvelle habitude » à travers les re-rendus
@@ -1105,6 +1171,8 @@ function celebrate() {
 }
 
 function bind() {
+  app.querySelectorAll('[data-note-h]').forEach(b=>b.onclick=()=>openNote(b.dataset.noteH,b.dataset.noteDay));
+  app.querySelectorAll('[data-note-remove]').forEach(b=>b.onclick=()=>removeNote(b.dataset.noteRemove,b.dataset.noteDay,b));
   app.querySelectorAll('[data-retry-game]').forEach(b => b.onclick=()=>load());
   app.querySelectorAll('[data-xp-period]').forEach(b => b.onclick=()=>{xpPeriod=b.dataset.xpPeriod;render();app.querySelector(`[data-xp-period="${xpPeriod}"]`)?.focus();});
   app.querySelectorAll('[data-pin]').forEach(b=>b.onclick=async()=>{
@@ -1156,6 +1224,7 @@ function bind() {
         const after = model().day(me.id, ymd(new Date()));
         if (on && day === ymd(new Date()) && after.total && after.done === after.total && before.done < before.total) celebrate();
         if (isFrog) toast('🐸 Frog eaten ! Un défi difficile de moins.');
+        if (on && data.notesReady) openNote(habit_id,day);
       });
     } catch (error) { alert(error.message || 'Impossible de sauvegarder cette coche.'); }
     finally { b.disabled = false; }
@@ -1202,7 +1271,7 @@ async function enter(session) {
 
 sb.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' && session && (!me || me.id !== session.user.id)) enter(session);
-  if (event === 'SIGNED_OUT') { document.getElementById('edit-dialog').close(); me = null; if (channel) sb.removeChannel(channel); renderAuth(); }
+  if (event === 'SIGNED_OUT') { document.getElementById('edit-dialog').close(); document.getElementById('note-dialog').close(); me = null; if (channel) sb.removeChannel(channel); renderAuth(); }
 });
 const { data: { session } } = await sb.auth.getSession();
 if (session) enter(session); else renderAuth();

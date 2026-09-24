@@ -353,17 +353,47 @@
     .completion-bubble { margin:0 0 10px !important; }
   }
   /* Bulle de chat */
-  .chat-fab { position:fixed; right:22px; bottom:22px; z-index:40; width:72px; height:72px; border-radius:50%; border:0; cursor:pointer; font-size:34px;
               background:var(--c0); color:#fff; box-shadow:0 10px 28px rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; transition:transform .15s; }
-  .chat-fab:hover { transform:scale(1.06); }
-  .chat-fab.open { font-size:20px; background:var(--card-solid); color:var(--ink); border:1px solid var(--line); }
-  .chat-fab .badge { position:absolute; top:-2px; right:-2px; min-width:26px; height:26px; padding:0 7px; border-radius:13px; background:#e5484d; color:#fff;
-                     font:700 14px/26px Inter, sans-serif; box-shadow:0 0 0 2px var(--bg); animation:pop .35s cubic-bezier(.3,1.6,.5,1); }
   .chat-panel { position:fixed; right:22px; bottom:108px; z-index:39; width:min(380px, calc(100vw - 24px)); height:min(520px, calc(100dvh - 120px));
                 display:flex; flex-direction:column; margin:0; box-shadow:0 24px 60px rgba(0,0,0,.45); background:var(--card-solid); }
   .chat-panel .chat-list { flex:1; max-height:none; }
-  @media (max-width:520px) { .chat-panel { right:12px; left:12px; width:auto; bottom:92px; height:calc(100dvh - 118px); } .chat-fab { right:16px; bottom:16px; width:64px; height:64px; font-size:30px; } }
   main { padding-bottom:100px; }
+  /* Rangée du haut: 4 petites tuiles */
+  .strip { display:grid; grid-template-columns:auto minmax(220px, .9fr) minmax(0, 1.2fr) minmax(0, 1.4fr); gap:14px; margin-bottom:16px; align-items:stretch; }
+  .strip > * { margin:0 !important; }
+  .tile { padding:12px 14px; min-width:0; }
+  .tile-h { font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .strip .deadline { flex-direction:column !important; align-items:flex-start !important; justify-content:center; gap:4px; padding:12px 16px !important; border-radius:22px !important; min-width:150px; }
+  .strip .deadline .dl-clock { display:flex; flex-direction:column; }
+  .strip .deadline .dl-clock b { font-size:24px; margin:0; }
+  .group-tile .gt-top { display:flex; align-items:center; gap:12px; }
+  .group-tile .k { font-size:10px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; }
+  .group-tile .v { font-size:24px; font-weight:700; line-height:1.1; }
+  .group-tile .v small { font-size:13px; color:var(--mute); }
+  .gt-pod { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:8px; font-size:12px; color:var(--ink2); }
+  .gt-pod span { white-space:nowrap; } .gt-pod b { color:color-mix(in srgb, var(--pc) 70%, var(--ink)); font-weight:600; }
+  .notes-tile .nt-body { margin:0; font-size:14px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .notes-tile .nt-meta { display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .notes-tile .nt-meta b { color:color-mix(in srgb, var(--pc) 70%, var(--ink)); }
+  .notes-tile .av.s, .chat-tile .av.s { width:20px; height:20px; font-size:10px; }
+  .tile .empty { font-size:13px; padding:0; margin:0; }
+  .chat-tile { cursor:pointer; transition:border-color .15s; }
+  .chat-tile:hover, .chat-tile:focus-visible { border-color:color-mix(in srgb, var(--c0) 50%, var(--line)); outline:none; }
+  .chat-tile .grow { margin-left:auto; text-transform:none; letter-spacing:0; font-size:12px; color:var(--ink2); padding:3px 9px; border-radius:999px; background:var(--cell); }
+  .chat-tile .badge { min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:#e5484d; color:#fff; font:700 11px/20px Inter, sans-serif; text-transform:none; letter-spacing:0; }
+  .ct-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:3px; font-size:13px; }
+  .ct-list li { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--ink2); }
+  .ct-list b { color:color-mix(in srgb, var(--pc) 70%, var(--ink)); font-weight:600; margin-right:4px; }
+  @media (max-width:1100px) { .strip { grid-template-columns:auto 1fr; } }
+  @media (max-width:560px) { .strip { grid-template-columns:1fr 1fr; gap:10px; } .strip .notes-tile, .strip .chat-tile { grid-column:1 / -1; } .strip .deadline { min-width:0; } }
+  /* Chat agrandi: grande fenêtre au centre */
+  .chat-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:38; backdrop-filter:blur(3px); }
+  .chat-panel { position:fixed !important; left:50% !important; top:50% !important; right:auto !important; bottom:auto !important; transform:translate(-50%, -50%);
+                width:min(760px, calc(100vw - 32px)) !important; height:min(82vh, 820px) !important; z-index:39; }
+  .chat-panel h3 { display:flex; align-items:center; gap:10px; } .chat-panel h3 .nc-x { margin-left:auto; }
+  @media (max-width:560px) { .chat-panel { width:calc(100vw - 16px) !important; height:calc(100dvh - 24px) !important; } }
+  /* Cartes alignées: en-têtes de même hauteur */
+  .ph { min-height:64px; } .ph h2 { flex-wrap:nowrap !important; overflow:hidden; } .ph .lvl { overflow:hidden; text-overflow:ellipsis; min-width:0; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -889,6 +919,34 @@ function bindChat() {
     if (error) toast('Impossible de retirer le message'); reload(0);
   });
 }
+// ---------- Rangée du haut: minuit, groupe, dernière note, chat ----------
+function groupTile(gd, gt, board) {
+  const medals = ['🥇', '🥈', '🥉'];
+  return `<section class="card tile group-tile">
+    <div class="gt-top">${ring(gd, gt, 54, 6)}<div><div class="k">Le groupe aujourd’hui</div><div class="v num">${gt ? Math.round(gd / gt * 100) : 0}<small> %</small></div></div></div>
+    <div class="gt-pod">${board.slice(0, 3).map((o, i) => `<span style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} sur 7 jours">${medals[i]} ${esc(o.p.name)} <b class="num">${pct(o.r)}</b></span>`).join('')}</div>
+  </section>`;
+}
+function notesTile() {
+  const n = [...(data.notes || [])].sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const who = n && data.profiles.find(p => p.id === n.user_id), h = n && data.habits.find(x => x.id === n.habit_id);
+  return `<section class="card tile notes-tile" ${who ? `style="--pc:${colorOf(who.id)}"` : ''}>
+    <div class="tile-h">📝 Dernière note</div>
+    ${n ? `<p class="nt-body">« ${esc(n.body)} »</p><div class="nt-meta"><span class="av s">${initial(who?.name)}</span><b>${esc(who?.name || '?')}</b>${h ? ` · ${esc(h.name)}` : ''} · ${ago(n.created_at)}</div>`
+        : '<p class="empty">Aucune note encore. Coche une habitude pour en laisser une.</p>'}
+  </section>`;
+}
+function chatTile() {
+  const names = new Map(data.profiles.map(x => [x.id, x.name]));
+  const seen = chatSeen(), unread = (data.chat || []).filter(m => m.user_id !== me.id && m.id > seen).length;
+  const last = (data.chat || []).slice(-3);
+  return `<section class="card tile chat-tile" id="chat-tile" role="button" tabindex="0" aria-label="Ouvrir le chat du groupe">
+    <div class="tile-h">💬 Chat ${unread ? `<span class="badge">${unread > 9 ? '9+' : unread}</span>` : ''}<span class="grow">Agrandir ⤢</span></div>
+    ${last.length ? `<ul class="ct-list">${last.map(m => `<li style="--pc:${colorOf(m.user_id)}"><b>${esc(names.get(m.user_id) || '?')}</b> ${esc(m.body)}</li>`).join('')}</ul>`
+      : '<p class="empty">Personne n’a encore écrit. Lance la conversation 👋</p>'}
+  </section>`;
+}
+
 // ---------- Chat du groupe: bulle en bas à droite, pastille rouge pour les nouveaux messages ----------
 let chatOpen = false;
 const chatSeenKey = () => `habitudes:chat-vu:${me.id}`;
@@ -902,15 +960,20 @@ function renderChatDock() {
   if (!dock || !me) return;
   if (chatOpen) markChatSeen();
   const seen = chatSeen(), unread = (data.chat || []).filter(m => m.user_id !== me.id && m.id > seen).length;
-  dock.innerHTML = `${chatOpen ? chatCard() : ''}
-    <button class="chat-fab ${chatOpen ? 'open' : ''}" id="chat-fab" aria-label="${chatOpen ? 'Fermer le chat' : 'Ouvrir le chat du groupe'}${unread ? ` (${unread} nouveau${unread > 1 ? 'x' : ''})` : ''}">
-      ${chatOpen ? '✕' : '💬'}${!chatOpen && unread ? `<span class="badge">${unread > 9 ? '9+' : unread}</span>` : ''}</button>`;
-  document.getElementById('chat-fab').onclick = () => {
-    chatOpen = !chatOpen;
-    renderChatDock(); bindChat();
-    if (chatOpen) { const l = document.getElementById('chat-list'); if (l) l.scrollTop = l.scrollHeight; document.getElementById('chat-input')?.focus(); }
-  };
+  dock.innerHTML = chatOpen ? `<div class="chat-backdrop" id="chat-backdrop"></div>${chatCard()}` : '';
+  if (chatOpen) {
+    const close = () => { chatOpen = false; renderChatDock(); render(); };
+    document.getElementById('chat-backdrop').onclick = close;
+    document.getElementById('chat-close').onclick = close;
+  }
 }
+function openChat() {
+  chatOpen = true; renderChatDock(); bindChat();
+  const l = document.getElementById('chat-list'); if (l) l.scrollTop = l.scrollHeight;
+  document.getElementById('chat-input')?.focus();
+  const tile = document.getElementById('chat-tile'); tile?.querySelector('.badge')?.remove(); // lu
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && chatOpen) { chatOpen = false; renderChatDock(); render(); } });
 
 function chatCard() {
   const names = new Map(data.profiles.map(x => [x.id, x.name]));
@@ -926,7 +989,7 @@ function chatCard() {
         <div class="bubble">${esc(m.body)}${mine ? `<button class="msg-x" data-chat-del="${m.id}" aria-label="Retirer mon message" title="Retirer">✕</button>` : ''}</div></div></div>`;
   }).join('');
   return `<section class="card chat chat-panel" style="--pc:${colorOf(me.id)}" role="dialog" aria-label="Chat du groupe">
-    <h3>💬 Chat du groupe <small>${data.chatReady ? 'en direct' : 'indisponible pour l’instant'}</small></h3>
+    <h3>💬 Chat du groupe <small>${data.chatReady ? 'en direct' : 'indisponible pour l’instant'}</small><button class="nc-x" id="chat-close" aria-label="Fermer le chat">✕</button></h3>
     <div class="chat-list" id="chat-list">${msgs || '<div class="empty chat-empty">Personne n’a encore écrit. Lance la conversation 👋</div>'}</div>
     <form class="chat-form" id="chat-form"><textarea id="chat-input" rows="1" maxlength="500" placeholder="Écris au groupe… (Entrée pour envoyer)" ${data.chatReady ? '' : 'disabled'}></textarea><button class="btn" type="submit" ${data.chatReady ? '' : 'disabled'}>Envoyer</button></form>
   </section>`;
@@ -1174,11 +1237,6 @@ function completionBubble(n,actions=false) {
  return `<div class="completion-bubble"><p>${esc(n.body)}</p><small>✓ ${esc(habit?.name||'Habitude complétée')} · ${ago(n.created_at)}</small>
  ${actions&&own?`<div class="note-actions">${n.day===ymd(new Date())?`<button class="link" data-note-h="${n.habit_id}" data-note-day="${n.day}">Modifier</button>`:''}<button class="link" data-note-remove="${n.habit_id}" data-note-day="${n.day}">Retirer</button></div>`:''}</div>`;
 }
-function latestNoteBubble(uid) {
- const cutoff=Date.now()-864e5;
- const n=(data.notes||[]).filter(n=>n.user_id===uid && new Date(n.created_at).getTime()>cutoff).sort((a,b)=>b.created_at.localeCompare(a.created_at))[0];
- return completionBubble(n,false); // modifier sa note: dans les réglages, pas sur la page
-}
 function openNote(habitId,day) {
  const dialog=document.getElementById('note-dialog');
  if(dialog.open || !me) return;
@@ -1241,10 +1299,6 @@ function render() {
     ${ring(mineToday.done, mineToday.total, 76, 8)}
     <div><h2>Ton espace, ${esc(myName)}</h2><p>${mineToday.total ? `${mineToday.done} sur ${mineToday.total} habitudes cochées aujourd’hui.` : 'Commence par ajouter une habitude qui compte pour toi.'}</p><p style="font-size:12px;margin-top:6px">Tes habitudes restent visibles par le groupe.</p></div>
   </section>`;
-  const groupSummary = `<section class="card group">
-      <div class="big">${ring(gd, gt, 76, 8)}<div><div class="k">Le groupe aujourd'hui</div><div class="v num">${gt ? Math.round(gd / gt * 100) : 0}<small> %</small></div><div class="tag" style="font-size:13px">${gd} coché${gd > 1 ? 's' : ''} sur ${gt}</div></div></div>
-      <div class="pod">${board.slice(0, 3).map((o, i) => `<div class="p" style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} sur 7 jours"><span class="av s">${initial(o.p.name)}</span><b>${medals[i]} ${esc(o.p.name)}</b><span class="num">${pct(o.r)}</span></div>`).join('')}</div>
-    </section>`;
 
   // Une carte par personne
   const days = lastDays(7);
@@ -1300,7 +1354,6 @@ function render() {
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}${levelPill(p.id)}</h2><div class="sub">${sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
-        ${latestNoteBubble(p.id)}
         <div class="kpis">
           <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
           <div class="kpi" data-tip="${rec && rec.b ? `Plus longue série: ${esc(rec.h.name)}` : 'Aucune série encore'}"><div class="k">Record</div><div class="v num">${rec ? rec.b : 0}<small> j</small></div><div class="t">${rec && rec.b ? esc(rec.h.name) : '—'}</div></div>
@@ -1354,9 +1407,10 @@ function render() {
   const inp = document.getElementById('new'), keep = inp ? { v: inp.value, f: document.activeElement === inp } : null;
   const cl = document.getElementById('chat-list'), ci = document.getElementById('chat-input');
   const chatKeep = { v: ci?.value || '', f: document.activeElement === ci, bottom: !cl || cl.scrollHeight - cl.scrollTop - cl.clientHeight < 40, top: cl?.scrollTop || 0 };
-  app.innerHTML = top + deadlineBanner(mineToday.done, mineToday.total) + (personal
-    ? `<div class="personal-layout">${personalIntro}<div class="people personal">${cards}</div>${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}${extra('feed', '⚡ Activité récente', feed)}</div>`
-    : groupSummary + `<div class="people">${cards}</div><div class="duo">${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}</div>` + extra('feed', '⚡ Activité récente', feed));
+  const strip = `<div class="strip">${deadlineBanner(mineToday.done, mineToday.total)}${groupTile(gd, gt, board)}${notesTile()}${chatTile()}</div>`;
+  app.innerHTML = top + strip + (personal
+    ? `<div class="personal-layout"><div class="people personal">${cards}</div>${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}${extra('feed', '⚡ Activité récente', feed)}</div>`
+    : `<div class="people">${cards}</div><div class="duo">${extra('xp', '🏅 Classement XP', lb)}${extra('dow', '📊 Par jour de la semaine', dow)}</div>` + extra('feed', '⚡ Activité récente', feed));
   if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
   renderChatDock();
   app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
@@ -1399,6 +1453,8 @@ function bind() {
   app.querySelectorAll('[data-retry-frog]').forEach(b => b.onclick = () => load());
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('gear')?.addEventListener('click', () => openSettings());
+  const ct = document.getElementById('chat-tile');
+  if (ct) { ct.onclick = openChat; ct.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat(); } }; }
   app.querySelectorAll('[data-open-settings]').forEach(b => b.onclick = () => openSettings(b.dataset.openSettings));
   bindChat();
   app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold, b.closest('[data-uid]')?.dataset.uid)); // carte d'une personne ou section du bas

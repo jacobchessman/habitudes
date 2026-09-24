@@ -79,6 +79,11 @@
   @media(max-width:520px) { .deadline { padding:16px; gap:12px; align-items:flex-start; flex-direction:column; } .deadline-clock { text-align:left; } .deadline-clock b { font-size:30px; } }
   @media(max-width:520px) { .personal-intro { align-items:flex-start; } .personal-intro h2 { font-size:22px; } }
 
+  .notif { border:1px solid var(--line); background:var(--card); border-radius:999px; padding:6px 12px; cursor:pointer; font-size:13px; color:var(--ink2); white-space:nowrap; }
+  .notif.on { color:color-mix(in srgb, var(--c0) 75%, var(--ink)); border-color:color-mix(in srgb, var(--c0) 40%, var(--line)); }
+  .notif.off { background:var(--ink); color:var(--bg); border-color:var(--ink); font-weight:600; }
+  .meta { flex-wrap:wrap; justify-content:flex-end; }
+
   /* Bandeau du groupe */
   .group { display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center; margin-bottom:18px; }
   .group .big { display:flex; align-items:center; gap:16px; }
@@ -441,6 +446,62 @@ function tickMidnight() {
   if (banner) banner.classList.toggle('urgent', Number(banner.dataset.remaining) > 0 && timer.seconds <= 7200);
 }
 
+// ---------- Notifications ----------
+// État: on | off | denied | ios (iPhone hors écran d'accueil) | unsupported
+let notif = 'unsupported';
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const pushOK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const swReady = pushOK ? navigator.serviceWorker.register('sw.js').catch(() => null) : Promise.resolve(null);
+
+function notifButton() {
+  const b = {
+    on: ['on', '🔔 Notifs activées', 'Clique pour recevoir une notification d’essai'],
+    off: ['off', '🔔 Activer les notifs', 'Rappel à 21 h et journées parfaites des autres'],
+    denied: ['', '🔕 Notifs bloquées', 'Réactive-les dans les réglages du navigateur pour ce site'],
+    ios: ['', '📲 Notifs: installe l’appli', 'Sur iPhone: Partager → Sur l’écran d’accueil, puis ouvre l’appli de là'],
+  }[notif];
+  return b ? `<button class="notif ${b[0]}" id="notif" data-tip="${b[2]}">${b[1]}</button>` : '';
+}
+const b64ToBytes = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+async function saveSub(sub) {
+  const j = sub.toJSON();
+  const { error } = await sb.from('push_subscriptions').upsert({ user_id: me.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, { onConflict: 'endpoint' });
+  if (error) console.warn('abonnement', error.message);
+}
+async function refreshNotif() {
+  if (!pushOK) notif = isIOS && !standalone ? 'ios' : 'unsupported';
+  else if (Notification.permission === 'denied') notif = 'denied';
+  else {
+    const reg = await swReady, sub = reg && await reg.pushManager.getSubscription();
+    notif = sub && Notification.permission === 'granted' ? 'on' : 'off';
+    if (notif === 'on') saveSub(sub); // rattache l'appareil au compte connecté
+  }
+  const el = document.getElementById('notif');
+  if (el) { el.outerHTML = notifButton(); document.getElementById('notif')?.addEventListener('click', onNotifClick); }
+  else if (me) render(); // render() rebranche le bouton
+}
+function toast(msg) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2700); }
+async function onNotifClick() {
+  if (notif === 'ios') return alert('Sur iPhone, les notifications marchent seulement depuis l’appli installée:\n\n1. Dans Safari, touche Partager\n2. « Sur l’écran d’accueil »\n3. Ouvre Habitudes depuis l’écran d’accueil et reviens ici.');
+  if (notif === 'denied') return alert('Les notifications sont bloquées pour ce site. Réactive-les dans les réglages du navigateur, puis recharge la page.');
+  if (notif === 'on') {
+    const { data, error } = await sb.functions.invoke('push', { body: { action: 'test' } });
+    return toast(error ? 'Oups, l’essai n’est pas parti' : data?.sent ? 'Notification d’essai envoyée 🔔' : 'Aucun appareil trouvé');
+  }
+  if (await Notification.requestPermission() !== 'granted') return refreshNotif();
+  try {
+    const reg = await swReady || await navigator.serviceWorker.ready;
+    const { data, error } = await sb.functions.invoke('push', { body: { action: 'key' } });
+    if (error || !data?.publicKey) throw error || new Error('clé manquante');
+    const sub = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(data.publicKey) });
+    await saveSub(sub);
+    await sb.functions.invoke('push', { body: { action: 'test' } });
+    toast('Notifications activées 🔔');
+  } catch (e) { alert('Impossible d’activer les notifications: ' + (e?.message || e)); }
+  refreshNotif();
+}
+
 // ---------- Rendu ----------
 function render() {
   const M = model();
@@ -457,7 +518,7 @@ function render() {
   const top = `
     <div class="top">
       <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1><div class="tag">On se tient accountable.</div></div>
-      <div class="meta"><span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div>
+      <div class="meta">${notifButton()}<span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div>
     </div>`;
   const navigation = `<nav class="view-nav" aria-label="Affichage des habitudes">
     <button data-view="personal" aria-pressed="${personal}">Mon espace</button>
@@ -599,6 +660,7 @@ function celebrate() {
 
 function bind() {
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
+  document.getElementById('notif')?.addEventListener('click', onNotifClick);
   document.getElementById('out').onclick = () => sb.auth.signOut();
   const add = async () => {
     const input = document.getElementById('new'); const name = input.value.trim();
@@ -650,6 +712,7 @@ async function enter(session) {
   await sb.from('profiles').upsert({ id: me.id, name }, { onConflict: 'id', ignoreDuplicates: true });
   await load();
   subscribe();
+  refreshNotif();
 }
 
 sb.auth.onAuthStateChange((event, session) => {

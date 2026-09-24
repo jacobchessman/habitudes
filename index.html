@@ -315,6 +315,29 @@
   .toast { position:fixed; left:50%; bottom:28px; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:12px 18px; border-radius:14px; font-weight:600; z-index:31; box-shadow:0 10px 30px rgba(0,0,0,.3); animation:toast 2.6s ease forwards; }
   @keyframes toast { 0% { opacity:0; transform:translate(-50%, 10px); } 10%, 85% { opacity:1; transform:translate(-50%, 0); } 100% { opacity:0; } }
   @media (prefers-reduced-motion: reduce) { *, *::before { animation:none !important; transition:none !important; } }
+
+  .xp-panel {padding:16px;border:1px solid var(--line);border-radius:16px;margin:0 0 16px;background:color-mix(in srgb,var(--pc) 6%,var(--card-solid));}
+  .xp-heading {display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;font-size:18px;font-weight:700;}
+  .xp-panel p,.achievement p,.game-note {font-size:12px;color:var(--ink2);line-height:1.5;margin:8px 0;}
+  .game-progress {display:block;width:100%;height:8px;border:0;border-radius:8px;overflow:hidden;background:var(--cell);accent-color:var(--pc,var(--c0));margin:9px 0;}
+  .game-progress::-webkit-progress-bar {background:var(--cell);border-radius:8px;}
+  .game-progress::-webkit-progress-value {background:var(--pc,var(--c0));border-radius:8px;transition:width .3s;}
+  .achievement-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,205px),1fr));gap:10px;}
+  .achievement {border:1px solid var(--line);border-radius:12px;padding:13px;min-width:0;}
+  .achievement.earned {background:color-mix(in srgb,var(--pc) 7%,var(--card-solid));border-color:color-mix(in srgb,var(--pc) 40%,var(--line));}
+  .achievement strong {font-size:13px;} .achievement .counter {font-size:12px;font-variant-numeric:tabular-nums;}
+  .achievement small {display:block;font-size:11px;color:var(--ink2);margin-top:6px;}
+  .pin-badge {font:inherit;font-size:11px;border:1px solid var(--line);background:var(--card-solid);color:var(--ink);border-radius:8px;padding:5px 8px;margin-top:8px;cursor:pointer;}
+  .pin-badge[aria-pressed=true] {border-color:var(--pc);color:var(--pc);}
+  .pinned-badges {display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:12px;}
+  .xp-tabs {display:flex;gap:5px;flex-wrap:wrap;margin:12px 0;}
+  .xp-tabs button {border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--card-solid);color:var(--ink);font:inherit;font-size:12px;cursor:pointer;}
+  .xp-tabs button[aria-pressed=true] {background:var(--ink);color:var(--card-solid);}
+  .xp-row {display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:center;}
+  .xp-row small {display:block;font-size:11px;color:var(--ink2);margin-top:4px;}.xp-row b {overflow-wrap:anywhere;}
+  .rank-up {animation:rankPulse 1s ease 2;} @keyframes rankPulse {50% {box-shadow:0 0 0 5px color-mix(in srgb,var(--pc) 25%,transparent);}}
+  @media(prefers-reduced-motion:reduce) {.rank-up {animation:none}.game-progress::-webkit-progress-value {transition:none}}
+
 </style>
 </head>
 <body>
@@ -328,7 +351,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const app = document.getElementById('app');
-let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogChoices: [], frogStats: [], frogReady: false }, channel = null, live = false;
+let me = null, data = { profiles: [], habits: [], checks: [], frogs: [], frogChoices: [], frogStats: [], frogReady: false, game: [], gameReady: false }, channel = null, live = false;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -390,19 +413,25 @@ async function load() {
   const sequence = ++loadSequence, uid = me?.id;
   if (!uid) return;
   const today = ymd(new Date());
-  const [p, h, c, f, fc, fs] = await Promise.all([
+  const [p, h, c, f, fc, fs, g] = await Promise.all([
     sb.from('profiles').select('*'),
     sb.from('habits').select('*').order('created_at'),
     sb.from('checks').select('*').gte('day', ymd(addDays(new Date(), -400))),
     sb.from('frog_days').select('*').eq('day', today),
     sb.from('frog_choices').select('*'),
     sb.rpc('frog_stats', { p_day: today }),
+    sb.rpc('gamification_snapshot'),
   ]);
   if (sequence !== loadSequence || saving || me?.id !== uid) return;
   if (p.error || h.error || c.error) { toast('Chargement impossible. Réessaie dans un instant.'); return; }
+  const oldRank = data.gameReady ? rankFor(gameFor(uid).peak_xp).name : null;
   data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [],
-    frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error };
+    frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error, game: g.data || [], gameReady: !g.error };
   render();
+  if (oldRank && data.gameReady && rankFor(gameFor(uid).peak_xp).name !== oldRank) {
+    const panel = app.querySelector('[data-my-rank]'); panel?.classList.add('rank-up');
+    toast('🎉 Nouveau rang : ' + rankFor(gameFor(uid).peak_xp).name);
+  }
 }
 async function saveChange(action) {
   saving++; loadSequence++;
@@ -510,6 +539,68 @@ function badgesFor(uid, M) {
     { e:'🥇', t:'Premier arrivé', d:'finir sa journée avant tout le groupe', ok: firsts >= 1 },
     { e:'🤝', t:'Esprit d’équipe', d:'tout le groupe parfait le même jour', ok: team },
   ];
+}
+
+
+// ---------- XP et achievements : valeurs et récompenses vérifiées par le serveur ----------
+const RANKS = [[0,'Rookie','🌱'],[25,'Starter','✨'],[75,'Builder','🧱'],[150,'Grinder','⚙️'],[300,'Challenger','⚔️'],[500,'Warrior','🛡️'],[800,'Elite','💎'],[1200,'Master','🥋'],[1800,'Legend','👑'],[3000,'Unstoppable','🔥']];
+function rankFor(xp=0) { const i=RANKS.findLastIndex(r=>xp>=r[0]); const r=RANKS[Math.max(0,i)]; return {threshold:r[0],name:r[1],emoji:r[2],next:RANKS[i+1]}; }
+const ACHIEVEMENTS = [
+ ['first','🚀','First Step','Compléter ta première habitude',1,'habitude'],
+ ['clean','✅','Clean Sweep','Compléter toutes tes habitudes du jour',1,'habitudes'],
+ ['fire','🔥','On Fire','Au moins une habitude, 7 jours de suite',7,'jours'],
+ ['showing','🗓️','Showing Up','Au moins une habitude, 30 jours de suite',30,'jours'],
+ ['century','💯','Century Club','Compléter 100 habitudes',100,'habitudes'],
+ ['perfect','🏆','Perfect Week','Compléter toutes tes habitudes, 7 jours de suite',7,'journées complètes'],
+ ['bite','🐸','First Bite','Compléter The Frog pour la première fois',1,'Frog'],
+ ['eater','🍽️','Frog Eater','Compléter The Frog 10 fois',10,'Frogs'],
+ ['hunter','🐊','Frog Hunter','Compléter The Frog 50 fois',50,'Frogs'],
+ ['king','👑','Frog King','Compléter The Frog 100 fois',100,'Frogs'],
+ ['excuses','⚡','No Excuses','Compléter The Frog 7 jours de suite',7,'jours'],
+ ['comeback','💪','Comeback','Reprendre après 3 journées entières sans activité',1,'retour']
+];
+let xpPeriod='week';
+function gameFor(uid) { return (data.game||[]).find(g=>g.user_id===uid)||{xp:0,peak_xp:0,week:0,month:0,previous_week:0,values:{},awards:{},pinned:[],today_total:0}; }
+function xpPanel(uid) {
+ if (!data.gameReady) return '<section class="xp-panel"><strong>XP et achievements</strong><p>Activation du suivi en attente. Tes habitudes restent disponibles.</p><button class="link" data-retry-game>Réessayer</button></section>';
+ const g=gameFor(uid),r=rankFor(g.peak_xp),next=r.next;
+ const value=next?Math.max(0,g.xp-r.threshold):1,max=next?next[0]-r.threshold:1;
+ return `<section class="xp-panel" ${uid===me.id?'data-my-rank':''}><div class="xp-heading"><span>${r.emoji} ${r.name}</span><span class="num">${g.xp} XP</span></div>
+ <progress class="game-progress" value="${Math.min(value,max)}" max="${max}" aria-label="Progression du rang"></progress>
+ <p>${next?`${Math.max(0,next[0]-g.xp)} XP avant ${next[2]} ${next[1]} · objectif ${next[0]} XP`:'Rang maximal atteint. Chaque habitude continue de compter !'}</p>
+ <details><summary class="game-note">Voir les 10 rangs et les règles XP</summary><p>${RANKS.map(([xp,n,e])=>`${e} ${n} : ${xp} XP`).join(' · ')}</p><p>1 XP par habitude · 2 XP au total pour le Frog · aucun bonus de badge. Décocher retire les XP; les rangs et badges gagnés restent acquis. Toutes les habitudes comptent : leur nombre influence le classement.</p></details>
+ <div class="pinned-badges">${g.pinned.map(id=>{const a=ACHIEVEMENTS.find(a=>a[0]===id);return a?`<span>${a[1]} ${a[2]}</span>`:''}).join('')}</div></section>`;
+}
+function achievementCards(uid) {
+ if (!data.gameReady) return '<p class="game-note">La progression apparaîtra après activation du suivi.</p>';
+ const g=gameFor(uid),mine=uid===me.id;
+ return `<div class="achievement-grid">${ACHIEVEMENTS.map(([id,emoji,name,description,goal,unit])=>{
+ const earned=g.awards[id],target=id==='clean'?Math.max(1,g.today_total):goal;
+ const value=earned?target:Math.min(target,Math.max(0,g.values[id]||0));
+ const record=['fire','showing'].includes(id)?g.best_run:id==='excuses'?g.best_frog:id==='perfect'?g.best_perfect:null;
+ const count=earned?`${target}/${target} ${unit}`:`${value}/${target} ${unit}`;
+ return `<article class="achievement ${earned?'earned':''}"><strong>${emoji} ${name}</strong><p>${description}</p>
+ <progress class="game-progress" value="${value}" max="${target}" aria-label="${name}"></progress><div class="counter">${count} · ${Math.round(value/target*100)} %</div>
+ ${record!==null?`<small>Série actuelle : ${g.values[id]||0} · record : ${record||0}</small>`:''}
+ <small>${earned?`✓ Débloqué le ${esc(earned)}`:id==='comeback'?(g.comeback_ready?'Complète une habitude → retour réussi':'Disponible après une pause de 3 jours'):id==='clean'&&!g.today_total?'Ajoute une habitude pour commencer':'En cours'}</small>
+ ${mine&&earned?`<button class="pin-badge" data-pin="${id}" aria-pressed="${g.pinned.includes(id)}">${g.pinned.includes(id)?'📌 Épinglé':'Épingler au profil'}</button>`:''}</article>`;
+ }).join('')}</div><p class="game-note">Badges acquis conservés · jusqu’à 3 badges épinglés · les paliers Frog 1 → 10 → 50 → 100 restent visibles.</p>`;
+}
+function xpLeaderboard() {
+ const rows=data.profiles.map(p=>({p,g:gameFor(p.id)})).sort((a,b)=>b.g[xpPeriod]-a.g[xpPeriod]||a.p.name.localeCompare(b.p.name));
+ const champion=Math.max(0,...rows.map(o=>o.g.previous_week));
+ const labels={week:'Cette semaine',month:'Ce mois-ci',xp:'Depuis toujours'};
+ return `<section class="card"><h3>Classement XP</h3><div class="xp-tabs" role="group" aria-label="Période du classement">${Object.entries(labels).map(([key,label])=>`<button data-xp-period="${key}" aria-pressed="${xpPeriod===key}">${label}</button>`).join('')}</div>
+ <p class="game-note">Semaine du lundi au dimanche · heure de Montréal. 👑 Gagnant de la semaine précédente; les ex æquo partagent le rang.</p>
+ ${!data.gameReady?'<p class="game-note">Classement disponible après activation.</p>':rows.length?rows.map((o,i)=>{const rank=1+rows.filter(x=>x.g[xpPeriod]>o.g[xpPeriod]).length,r=rankFor(o.g.peak_xp);return `<div class="xp-row"><span>${o.g[xpPeriod]>0&&rank<=3?['🥇','🥈','🥉'][rank-1]:rank}</span><div><b>${esc(o.p.name)}${champion>0&&o.g.previous_week===champion?' 👑':''}</b><small>${r.emoji} ${r.name}</small></div><b class="num">${o.g[xpPeriod]} XP</b></div>`}).join(''):'<p class="game-note">Le classement attend sa première personne.</p>'}</section>`;
+}
+function legacyBadgeCard(b) {
+ let current=b.ok?1:0,goal=1;
+ const match=b.pg?.match(/^(\d+)\/(\d+)$/);
+ if(match) {current=Number(match[1]);goal=Number(match[2]);}
+ else if(b.pg?.includes('%')) {current=Number.parseInt(b.pg)||0;goal=80;}
+ if(b.ok) current=goal;
+ return `<article class="achievement ${b.ok?'earned':''}"><strong>${b.e} ${esc(b.t)}</strong><p>${esc(b.d)}</p><progress class="game-progress" value="${Math.min(current,goal)}" max="${goal}" aria-label="${esc(b.t)}"></progress><div class="counter">${current}/${goal} · ${Math.min(100,Math.round(current/goal*100))} %</div><small>${b.ok?'✓ Objectif atteint':'En cours'}</small></article>`;
 }
 
 // Sections repliables: le choix vaut pour toutes les cartes, sur cet appareil.
@@ -909,6 +1000,7 @@ function render() {
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
+        ${xpPanel(p.id)}
         <div class="kpis">
           <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
           <div class="kpi" data-tip="${rec && rec.b ? `Plus longue série: ${esc(rec.h.name)}` : 'Aucune série encore'}"><div class="k">Record</div><div class="v num">${rec ? rec.b : 0}<small> j</small></div><div class="t">${rec && rec.b ? esc(rec.h.name) : '—'}</div></div>
@@ -927,19 +1019,16 @@ function render() {
         <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
         <div class="heat-foot"><span>${data.checks.filter(c => c.user_id === p.id).length} cochés au total</span><span class="legend">moins <i style="background:var(--cell)"></i><i style="background:color-mix(in srgb, var(--pc) 30%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 55%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 78%, var(--cell))"></i><i style="background:var(--pc)"></i> tout</span></div>
         </div>
+        <button class="sect" data-fold="achievements" aria-expanded="${shown('achievements')}"><span>Achievements · ${data.gameReady ? Object.keys(gameFor(p.id).awards).length : '—'}/12</span><span class="chev">▾</span></button>
+        <div class="fold ${shown('achievements') ? '' : 'hidden'}" data-fold-body="achievements">${achievementCards(p.id)}</div>
         <button class="sect" data-fold="badges" aria-expanded="${shown('badges')}"><span>Badges · ${bs.filter(b => b.ok).length}/${bs.length}</span><span class="chev">▾</span></button>
         <div class="fold ${shown('badges') ? '' : 'hidden'}" data-fold-body="badges">
-        <div class="badges">${bs.map(b => `<span class="bdg ${b.ok?'':'off'}" data-tip="${b.t} · ${b.d}${b.ok ? ' ✓' : b.pg ? ` · ${b.pg}` : ''}">${b.e}</span>`).join('')}</div>
+        <div class="achievement-grid">${bs.map(legacyBadgeCard).join('')}</div>
         </div>
       </section>`;
   }).join('');
 
-  // Classement 7 jours
-  const lb = `
-    <section class="card">
-      <h3>Classement <small>7 derniers jours</small></h3>
-      ${board.length ? `<div class="lb">${board.map((o, i) => `<div class="r" style="--pc:${colorOf(o.p.id)}" data-tip="${esc(o.p.name)} · ${pct(o.r)} des habitudes cochées · ${M.perfectStreak(o.p.id)} journée(s) parfaite(s) de suite">${i < 3 ? `<span class="medal">${medals[i]}</span>` : `<span class="rank">${i + 1}</span>`}<span class="av s">${initial(o.p.name)}</span><span class="nm">${esc(o.p.name)}</span><span class="track"><i style="width:${o.r * 100}%"></i></span><span class="pct num">${pct(o.r)}</span></div>`).join('')}</div>` : '<div class="empty">Personne n’a encore d’habitude.</div>'}
-    </section>`;
+  const lb = xpLeaderboard();
 
   // Jour de la semaine, tout le monde côte à côte
   const withHabits = visiblePeople.filter(p => M.habitsOf(p.id).length);
@@ -969,7 +1058,7 @@ function render() {
   // Conserver le focus et le texte du champ « nouvelle habitude » à travers les re-rendus
   const inp = document.getElementById('new'), keep = inp ? { v: inp.value, f: document.activeElement === inp } : null;
   app.innerHTML = top + setupCard() + deadlineBanner(mineToday.done, mineToday.total) + navigation + (personal
-    ? `<div class="personal-layout">${personalIntro}<div class="people personal">${cards}</div><div style="margin-bottom:18px">${dow}</div>${feed}</div>`
+    ? `<div class="personal-layout">${personalIntro}${lb}<div class="people personal">${cards}</div><div style="margin-bottom:18px">${dow}</div>${feed}</div>`
     : groupSummary + `<div class="people">${cards}</div><div class="duo">${lb}${dow}</div>` + feed);
   if (keep) { const n = document.getElementById('new'); if (n) { n.value = keep.v; if (keep.f) n.focus(); } }
   app.querySelectorAll('.heat-wrap').forEach(hw => hw.scrollLeft = hw.scrollWidth);
@@ -989,6 +1078,17 @@ function celebrate() {
 }
 
 function bind() {
+  app.querySelectorAll('[data-retry-game]').forEach(b => b.onclick=()=>load());
+  app.querySelectorAll('[data-xp-period]').forEach(b => b.onclick=()=>{xpPeriod=b.dataset.xpPeriod;render();app.querySelector(`[data-xp-period="${xpPeriod}"]`)?.focus();});
+  app.querySelectorAll('[data-pin]').forEach(b=>b.onclick=async()=>{
+    if(saving) return;
+    const g=gameFor(me.id),id=b.dataset.pin;
+    const pins=g.pinned.includes(id)?g.pinned.filter(x=>x!==id):[...g.pinned,id];
+    if(pins.length>3) {toast('Désépingle un badge pour en choisir un autre (maximum 3).');return;}
+    b.disabled=true;
+    try {await saveChange(async()=>{const {error}=await sb.rpc('pin_achievements',{p_ids:pins});if(error) throw error;});}
+    catch(e) {toast(e.message||'Impossible de sauvegarder les badges.');} finally {b.disabled=false;}
+  });
   app.querySelectorAll('[data-rename]').forEach(b => b.onclick = () => openEditor('rename', b.dataset.rename));
   app.querySelectorAll('[data-choose-frog]').forEach(b => b.onclick = () => openEditor('frog'));
   app.querySelectorAll('[data-frog-select]').forEach(sel => sel.onchange = () => chooseFrog(sel));

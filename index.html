@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Habitudes</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Habitudes">
+<meta name="theme-color" content="#111418">
+<style>
+  :root { --bg:#f6f5f2; --card:#fff; --ink:#1b1d21; --mute:#7a7f87; --line:#e4e2dc; --on:#2f9e6b; --onsoft:#dff2e8; --accent:#1b1d21; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111418; --card:#1a1e24; --ink:#eceef1; --mute:#8b929c; --line:#2a3038; --on:#3fbf85; --onsoft:#1d3a2d; --accent:#eceef1; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:20px 16px 60px; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  h1 { font-size:22px; margin:0; }
+  h2 { font-size:16px; margin:0 0 10px; display:flex; gap:8px; align-items:baseline; }
+  h2 small { color:var(--mute); font-weight:400; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px; }
+  .me { border-color:var(--on); }
+  table { width:100%; border-collapse:collapse; }
+  th { font-weight:500; color:var(--mute); font-size:12px; text-align:center; padding:0 2px 6px; }
+  th:first-child { text-align:left; }
+  td { padding:4px 2px; text-align:center; border-top:1px solid var(--line); }
+  td.name { text-align:left; word-break:break-word; }
+  td.name .streak { color:var(--mute); font-size:12px; margin-left:4px; }
+  .box { width:30px; height:30px; border-radius:8px; border:1.5px solid var(--line); background:transparent; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:16px; padding:0; }
+  .box.on { background:var(--on); border-color:var(--on); }
+  .box:not([disabled]) { cursor:pointer; }
+  .box[disabled] { opacity:.9; }
+  .today { color:var(--ink); font-weight:700; }
+  input, button { font:inherit; }
+  input[type=text], input[type=email], input[type=password] { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--card); color:var(--ink); }
+  .btn { padding:10px 14px; border-radius:10px; border:0; background:var(--accent); color:var(--bg); cursor:pointer; white-space:nowrap; }
+  .link { background:none; border:0; color:var(--mute); cursor:pointer; text-decoration:underline; padding:0; }
+  .del { background:none; border:0; color:var(--mute); cursor:pointer; font-size:14px; padding:0 4px; }
+  .row { display:flex; gap:8px; margin-top:10px; }
+  .stack > * + * { margin-top:10px; }
+  .auth { max-width:360px; margin:10vh auto 0; }
+  .err { color:#d24; min-height:1.2em; font-size:13px; }
+  .empty { color:var(--mute); font-size:13px; padding:6px 0; }
+  .live { font-size:12px; color:var(--mute); }
+  .live::before { content:"●"; margin-right:4px; color:var(--mute); }
+  .live.ok::before { color:var(--on); }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = document.getElementById('app');
+let me = null, data = { profiles: [], habits: [], checks: [] }, channel = null, live = false;
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function lastDays(n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); out.push(d); }
+  return out;
+}
+const JOURS = ['dim','lun','mar','mer','jeu','ven','sam'];
+
+// ---------- Connexion ----------
+function renderAuth(mode = 'in', msg = '') {
+  app.innerHTML = `
+    <div class="auth card stack">
+      <h1>Habitudes</h1>
+      <div class="live">On se tient accountable.</div>
+      ${mode === 'up' ? '<input id="name" type="text" placeholder="Ton prénom" autocomplete="given-name">' : ''}
+      <input id="email" type="email" placeholder="Courriel" autocomplete="email">
+      <input id="pw" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="${mode==='up'?'new-password':'current-password'}">
+      <button class="btn" id="go" style="width:100%">${mode === 'up' ? 'Créer mon compte' : 'Se connecter'}</button>
+      <div class="err" id="err">${esc(msg)}</div>
+      <button class="link" id="switch">${mode === 'up' ? "J'ai déjà un compte" : 'Première fois? Créer un compte'}</button>
+    </div>`;
+  document.getElementById('switch').onclick = () => renderAuth(mode === 'up' ? 'in' : 'up');
+  const go = async () => {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('pw').value;
+    const err = document.getElementById('err');
+    err.textContent = '';
+    if (mode === 'up') {
+      const name = document.getElementById('name').value.trim();
+      if (!name) { err.textContent = 'Écris ton prénom.'; return; }
+      const { error } = await sb.auth.signUp({ email, password, options: { data: { name } } });
+      if (error) err.textContent = error.message;
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) err.textContent = error.message === 'Invalid login credentials' ? 'Courriel ou mot de passe invalide.' : error.message;
+    }
+  };
+  document.getElementById('go').onclick = go;
+  app.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') go(); }));
+}
+
+// ---------- Données ----------
+async function load() {
+  const [p, h, c] = await Promise.all([
+    sb.from('profiles').select('*'),
+    sb.from('habits').select('*').order('created_at'),
+    sb.from('checks').select('*').gte('day', ymd(lastDays(60)[0])),
+  ]);
+  data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [] };
+  render();
+}
+
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  let t = null;
+  channel = sb.channel('tout')
+    .on('postgres_changes', { event: '*', schema: 'public' }, () => { clearTimeout(t); t = setTimeout(load, 150); })
+    .subscribe(status => { live = status === 'SUBSCRIBED'; const el = document.querySelector('.live'); if (el) el.classList.toggle('ok', live); });
+}
+
+function streak(habitId, set) {
+  let n = 0; const d = new Date();
+  if (!set.has(habitId + ymd(d))) d.setDate(d.getDate() - 1);
+  while (set.has(habitId + ymd(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+// ---------- Écran principal ----------
+function render() {
+  const days = lastDays(7);
+  const todayKey = ymd(new Date());
+  const set = new Set(data.checks.map(c => c.habit_id + c.day));
+  const people = [...data.profiles].sort((a, b) => (b.id === me.id) - (a.id === me.id) || a.name.localeCompare(b.name));
+
+  const head = `<tr><th></th>${days.map(d => `<th class="${ymd(d)===todayKey?'today':''}">${JOURS[d.getDay()]}<br>${d.getDate()}</th>`).join('')}</tr>`;
+
+  const cards = people.map(p => {
+    const mine = p.id === me.id;
+    const habits = data.habits.filter(h => h.user_id === p.id);
+    const done = habits.filter(h => set.has(h.id + todayKey)).length;
+    const rows = habits.map(h => `
+      <tr>
+        <td class="name">${esc(h.name)}${streak(h.id, set) ? `<span class="streak">🔥${streak(h.id, set)}</span>` : ''}
+          ${mine ? `<button class="del" data-del="${h.id}" title="Retirer">✕</button>` : ''}</td>
+        ${days.map(d => { const k = ymd(d), on = set.has(h.id + k);
+          return `<td><button class="box ${on?'on':''}" ${mine?`data-h="${h.id}" data-d="${k}"`:'disabled'} aria-label="${esc(h.name)} ${k}">${on?'✓':''}</button></td>`; }).join('')}
+      </tr>`).join('');
+    return `
+      <section class="card ${mine?'me':''}">
+        <h2>${esc(p.name)}${mine ? ' <small>(toi)</small>' : ''} <small>${habits.length ? `${done}/${habits.length} aujourd'hui` : ''}</small></h2>
+        ${habits.length ? `<table>${head}${rows}</table>` : `<div class="empty">Aucune habitude encore.</div>`}
+        ${mine ? `<div class="row"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
+      </section>`;
+  }).join('');
+
+  app.innerHTML = `
+    <header><h1>Habitudes</h1><div style="display:flex;gap:14px;align-items:center"><span class="live ${live?'ok':''}">en direct</span><button class="link" id="out">Déconnexion</button></div></header>
+    ${cards}`;
+
+  document.getElementById('out').onclick = () => sb.auth.signOut();
+  const add = async () => {
+    const input = document.getElementById('new'); const name = input.value.trim();
+    if (!name) return;
+    input.value = '';
+    const { error } = await sb.from('habits').insert({ name });
+    if (error) alert(error.message); else load();
+  };
+  document.getElementById('add').onclick = add;
+  document.getElementById('new').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+
+  app.querySelectorAll('[data-h]').forEach(b => b.onclick = async () => {
+    const habit_id = b.dataset.h, day = b.dataset.d, on = b.classList.toggle('on');
+    b.textContent = on ? '✓' : '';
+    const { error } = on
+      ? await sb.from('checks').insert({ habit_id, day })
+      : await sb.from('checks').delete().match({ habit_id, day });
+    if (error) alert(error.message);
+    load();
+  });
+  app.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+    if (!confirm('Retirer cette habitude et tout son historique?')) return;
+    const { error } = await sb.from('habits').delete().eq('id', b.dataset.del);
+    if (error) alert(error.message); else load();
+  });
+}
+
+async function enter(session) {
+  me = session.user;
+  const name = me.user_metadata?.name || me.email.split('@')[0];
+  await sb.from('profiles').upsert({ id: me.id, name }, { onConflict: 'id', ignoreDuplicates: true });
+  await load();
+  subscribe();
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session && (!me || me.id !== session.user.id)) enter(session);
+  if (event === 'SIGNED_OUT') { me = null; if (channel) sb.removeChannel(channel); renderAuth(); }
+});
+const { data: { session } } = await sb.auth.getSession();
+if (session) enter(session); else renderAuth();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me) load(); });
+</script>
+</body>
+</html>

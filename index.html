@@ -199,6 +199,10 @@
   /* Cartes personnes */
   .people { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap:18px; margin-bottom:18px; align-items:start; }
   .person { position:relative; overflow:hidden; }
+  .caca { position:absolute; left:50%; top:130px; transform:translateX(-50%); z-index:6; font-size:min(190px, 42vw); line-height:1; background:none; border:0; padding:0; cursor:pointer;
+          filter:drop-shadow(0 12px 22px rgba(0,0,0,.45)); animation:caca 1.6s ease-in-out infinite; transition:left .5s cubic-bezier(.3,1.5,.5,1), opacity .4s; }
+  .caca.tasse { left:108%; opacity:.0; pointer-events:none; }
+  @keyframes caca { 0%,100% { rotate:-8deg; scale:1; } 50% { rotate:8deg; scale:1.08; } }
   .person::before { content:""; position:absolute; inset:0 0 auto 0; height:3px; background:linear-gradient(90deg, var(--pc), color-mix(in srgb, var(--pc) 20%, transparent)); }
   .person.me { border-color:color-mix(in srgb, var(--pc) 35%, var(--line)); }
   .ph { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
@@ -640,7 +644,17 @@ function toggleFold(key, uid) {
 }
 
 // La couleur suit la personne (ordre stable par id), jamais son rang.
-const colorOf = uid => { const ids = data.profiles.map(p => p.id).sort(); return `var(--c${Math.max(0, ids.indexOf(uid)) % 6})`; };
+// Couleur gardée dans le profil (profiles.color), fixe pour toujours. Repli: ordre des id, pour un profil pas encore migré.
+const colorOf = uid => {
+  const c = data.profiles.find(p => p.id === uid)?.color;
+  if (Number.isInteger(c)) return `var(--c${c})`;
+  const ids = data.profiles.map(p => p.id).sort(); return `var(--c${Math.max(0, ids.indexOf(uid)) % 6})`;
+};
+
+// 💩 BLAGUE pour Vincent: mettre à false pour l'enlever. Gros caca qui gigote par-dessus sa carte;
+// un clic le tasse quelques secondes (le passé est verrouillé à minuit: il ne faut pas qu'il perde une journée pour vrai).
+const BLAGUE_CACA = true;
+const estLaVictime = p => BLAGUE_CACA && /^vincent/i.test(p.name || '');
 const initial = name => esc((name || '?').trim().charAt(0).toUpperCase());
 const people = () => [...data.profiles].sort((a, b) => (b.id === me.id) - (a.id === me.id) || a.name.localeCompare(b.name));
 
@@ -1021,6 +1035,7 @@ function render() {
 
     return `
       <section class="card person ${mine?'me':''}" data-uid="${p.id}" style="--pc:${pc}">
+        ${estLaVictime(p) ? '<button class="caca" data-caca aria-label="Caca">💩</button>' : ''}
         <div class="ph">
           <span class="av">${initial(p.name)}</span>
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
@@ -1118,6 +1133,7 @@ function bind() {
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('notif')?.addEventListener('click', openCenter);
   document.getElementById('setup-go')?.addEventListener('click', onNotifClick);
+  app.querySelectorAll('[data-caca]').forEach(c => c.onclick = () => { c.classList.add('tasse'); setTimeout(() => c.classList.remove('tasse'), 4000); });
   app.querySelectorAll('[data-fold]').forEach(b => b.onclick = () => toggleFold(b.dataset.fold, b.closest('.person')?.dataset.uid));
   document.getElementById('setup-later')?.addEventListener('click', () => { try { localStorage.setItem('habitudes:notif-plus-tard', Date.now() + 3 * 864e5); } catch {} render(); });
   document.getElementById('out').onclick = () => sb.auth.signOut();

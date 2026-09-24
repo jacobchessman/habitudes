@@ -1351,7 +1351,7 @@ function render() {
       <section class="card person ${mine?'me':''}" data-uid="${p.id}" style="--pc:${pc}">
         <div class="ph">
           <span class="av">${initial(p.name)}</span>
-          <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}${levelPill(p.id)}</h2><div class="sub">${sub}</div></div>
+          <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub" data-tip="${esc(sub)}">${levelPill(p.id) || sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
         <div class="kpis">

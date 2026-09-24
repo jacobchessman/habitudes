@@ -98,6 +98,9 @@
   .frog-score b { color:var(--ink); font-size:22px; margin-right:5px; }
   .frog.eaten { border-color:var(--c0); }
   .frog-status { color:var(--c0); font-size:12px; font-weight:600; }
+  .frog-pick { display:flex; flex-direction:column; gap:6px; margin-top:10px; font-size:12px; color:var(--ink2); font-weight:600; }
+  .frog-pick select { font:inherit; font-size:15px; font-weight:500; padding:10px 12px; border-radius:10px; border:1px solid var(--box); background:var(--bg); color:var(--ink); }
+  .frog-pick select:disabled { opacity:.6; cursor:not-allowed; }
   dialog.editor { width:min(460px,calc(100% - 32px)); padding:24px; border:1px solid var(--line); border-radius:22px; background:var(--card-solid); color:var(--ink); box-shadow:var(--shadow); }
   dialog::backdrop { background:rgba(0,0,0,.5); backdrop-filter:blur(3px); }
   .editor h2 { margin:0 0 10px; font-family:"Space Grotesk",sans-serif; }
@@ -196,14 +199,15 @@
   .ph h2 small { font-family:Inter, sans-serif; font-size:12px; color:var(--mute); font-weight:500; }
   .ph .sub { font-size:13px; color:var(--ink2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  .kpis { display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-bottom:18px; }
+  .kpis { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px; margin-bottom:18px; }
   .kpi { background:color-mix(in srgb, var(--pc) 7%, transparent); border:1px solid color-mix(in srgb, var(--pc) 16%, transparent); border-radius:14px; padding:10px 10px 9px; min-width:0; }
   .kpi .k { font-size:11px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .kpi .v { font-size:24px; font-weight:700; line-height:1.1; margin-top:3px; white-space:nowrap; }
   .kpi .v small { font-size:13px; font-weight:500; color:var(--mute); }
   .kpi .t { font-size:11px; margin-top:1px; color:var(--mute); white-space:nowrap; }
   .kpi .t.up { color:var(--c0); } .kpi .t.down { color:var(--c2); }
-  @media (max-width:420px) { .kpis { grid-template-columns:repeat(2, 1fr); } }
+  @media (max-width:560px) { .kpis { grid-template-columns:repeat(6, 1fr); } .kpi { grid-column:span 2; } .kpi:nth-child(n+4) { grid-column:span 3; } }
+  @media (max-width:360px) { .kpis { grid-template-columns:repeat(2, 1fr); } .kpi, .kpi:nth-child(n+4) { grid-column:auto; } }
 
   .sect { font-size:11px; color:var(--mute); text-transform:uppercase; letter-spacing:.08em; font-weight:600; margin:0 0 8px; display:flex; justify-content:space-between; }
   .habits { --bx:30px; margin-bottom:18px; }
@@ -745,11 +749,31 @@ function frogCard(p, mine, habits) {
   return `<section class="frog ${eaten ? 'eaten' : ''}" aria-label="The Frog de ${esc(p.name)}">
     <div class="frog-top"><h3>🐸 The Frog</h3><span class="frog-status">${eaten ? '✓ Eaten aujourd’hui !' : 'Ton défi prioritaire'}</span></div>
     ${f ? `<p class="frog-name">${esc(name)}</p><p>${eaten ? 'Grenouille mangée. Bien joué ! Le même Frog t’attend demain.' : activeHabit ? 'Le même défi chaque jour, jusqu’à ton prochain changement.' : 'Cette habitude a été retirée. Ton historique et la date de changement sont conservés.'}</p>` : `<p>${mine ? 'Choisis ton habitude la plus difficile. Elle restera ton Frog chaque jour.' : 'Pas encore de Frog choisi.'}</p>`}
-    ${mine ? `<div class="frog-top">${activeHabit && !eaten ? `<button class="btn" data-h="${f.habit_id}" data-d="${today}">🐸 Eat the Frog</button>` : ''}${habits.length ? `<button class="${f ? 'link' : 'btn'}" data-choose-frog ${locked ? 'disabled' : ''}>${f ? 'Changer mon Frog' : 'Choisir mon Frog'}</button>` : '<p>Ajoute une habitude pour choisir ton Frog.</p>'}</div>
-      <p>${locked ? `🔒 Changement possible le ${esc(unlockLabel)}.` : 'Un changement maximum tous les 7 jours.'}</p>` : ''}
+    ${mine ? (habits.length ? `<label class="frog-pick"><span>${f ? 'Mon Frog' : 'Choisis ton Frog'}</span>
+        <select data-frog-select ${locked ? 'disabled' : ''} aria-label="Habitude choisie comme Frog">
+          ${f ? '' : '<option value="" selected>Sélectionne une habitude…</option>'}
+          ${habits.map(h => `<option value="${h.id}" ${f?.habit_id === h.id ? 'selected' : ''}>${esc(h.name)}</option>`).join('')}
+          ${f && !activeHabit ? `<option value="" selected disabled>${esc(name)} (retirée)</option>` : ''}
+        </select></label>
+      ${activeHabit && !eaten ? `<div class="frog-top" style="margin-top:10px"><button class="btn" data-h="${f.habit_id}" data-d="${today}">🐸 Eat the Frog</button></div>` : ''}
+      <p>${locked ? `🔒 Changement possible le ${esc(unlockLabel)}.` : f ? 'Tu peux le changer maintenant: ensuite, il reste 7 jours.' : 'Un changement maximum tous les 7 jours.'}</p>` : '<p>Ajoute une habitude pour choisir ton Frog.</p>') : ''}
     ${daily?.eaten_at && !eaten ? '<p>Une victoire Frog est déjà comptée aujourd’hui.</p>' : ''}
-    <div class="frog-score"><b class="num">${total}</b> Frog${total > 1 ? 's' : ''} eaten · ${recent} sur les 30 derniers jours<br><small>1 maximum par jour · total conservé quand tu changes de Frog</small></div>
+    <p style="font-size:12px;margin-bottom:0">1 Frog maximum par jour · le total est conservé quand tu changes de Frog.</p>
   </section>`;
+}
+
+async function chooseFrog(sel) {
+  const id = sel.value, h = data.habits.find(x => x.id === id), prev = frogFor(me.id)?.habit_id || '';
+  if (!id || !h) return;
+  if (!confirm(`« ${h.name} » devient ton Frog. Tu ne pourras pas le changer avant 7 jours. On y va?`)) { sel.value = prev; return; }
+  sel.disabled = true;
+  try {
+    await saveChange(async () => {
+      const r = await sb.rpc('set_frog', { p_habit_id: id, p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
+      if (r.error) throw r.error;
+    });
+    toast('🐸 Nouveau Frog: ' + h.name);
+  } catch (e) { sel.value = prev; sel.disabled = false; toast(e.message || 'Changement impossible'); }
 }
 
 function openEditor(kind, habitId) {
@@ -876,6 +900,7 @@ function render() {
       }
     }
     const bs = badgesFor(p.id, M);
+    const fst = data.frogStats.find(x => x.user_id === p.id), frogEaten = { total: Number(fst?.eaten_total || 0), recent: Number(fst?.eaten_30 || 0) };
 
     return `
       <section class="card person ${mine?'me':''}" style="--pc:${pc}">
@@ -884,17 +909,19 @@ function render() {
           <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub">${sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
-        ${frogCard(p, mine, habits)}
         <div class="kpis">
           <div class="kpi" data-tip="${cur && cur.s ? esc(cur.h.name) : 'Coche une journée pour partir une série'}"><div class="k">Série</div><div class="v num">${cur ? cur.s : 0}<small> j</small></div><div class="t">${cur && cur.s ? esc(cur.h.name) : '—'}</div></div>
           <div class="kpi" data-tip="${rec && rec.b ? `Plus longue série: ${esc(rec.h.name)}` : 'Aucune série encore'}"><div class="k">Record</div><div class="v num">${rec ? rec.b : 0}<small> j</small></div><div class="t">${rec && rec.b ? esc(rec.h.name) : '—'}</div></div>
           <div class="kpi" data-tip="Part des habitudes cochées sur 30 jours"><div class="k">Réussite 30 j</div><div class="v num">${r30 === null ? '—' : Math.round(r30 * 100)}<small>${r30 === null ? '' : ' %'}</small></div><div class="t ${diff > 0 ? 'up' : diff < 0 ? 'down' : ''}">${diff === null ? 'nouveau' : diff > 0 ? `▲ ${diff} pts` : diff < 0 ? `▼ ${-diff} pts` : 'stable'}</div></div>
           <div class="kpi" data-tip="Journées où tout a été coché, sur 30 jours"><div class="k">Parfaites</div><div class="v num">${perf30}</div><div class="t">sur 30 j</div></div>
+          <div class="kpi" data-tip="Frogs mangés au total · 1 maximum par jour"><div class="k">🐸 Frogs</div><div class="v num">${frogEaten.total}</div><div class="t">${frogEaten.recent} sur 30 j</div></div>
         </div>
         <div class="sect"><span>Cette semaine</span><span>${habits.length} habitude${habits.length > 1 ? 's' : ''}</span></div>
         <div class="habits">${habits.length ? head + rows : '<div class="empty">Aucune habitude encore.</div>'}
           ${mine ? `<div class="add"><input id="new" type="text" placeholder="Nouvelle habitude (ex.: 10 min de lecture)"><button class="btn" id="add">Ajouter</button></div>` : ''}
         </div>
+        ${data.frogReady || mine ? `<button class="sect" data-fold="frog" aria-expanded="${shown('frog')}"><span>🐸 The Frog${frogFor(p.id) ? ` · ${esc(frogFor(p.id).habit_name)}` : ''}</span><span class="chev">▾</span></button>
+        <div class="fold ${shown('frog') ? '' : 'hidden'}" data-fold-body="frog">${frogCard(p, mine, habits)}</div>` : ''}
         <button class="sect" data-fold="heat" aria-expanded="${shown('heat')}"><span>30 dernières semaines</span><span class="chev">▾</span></button>
         <div class="fold ${shown('heat') ? '' : 'hidden'}" data-fold-body="heat">
         <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
@@ -964,6 +991,7 @@ function celebrate() {
 function bind() {
   app.querySelectorAll('[data-rename]').forEach(b => b.onclick = () => openEditor('rename', b.dataset.rename));
   app.querySelectorAll('[data-choose-frog]').forEach(b => b.onclick = () => openEditor('frog'));
+  app.querySelectorAll('[data-frog-select]').forEach(sel => sel.onchange = () => chooseFrog(sel));
   app.querySelectorAll('[data-retry-frog]').forEach(b => b.onclick = () => load());
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('notif')?.addEventListener('click', openCenter);

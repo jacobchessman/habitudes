@@ -100,6 +100,9 @@
   .frog-status { color:var(--c0); font-size:12px; font-weight:600; }
   .frog-pick { display:flex; flex-direction:column; gap:6px; margin-top:10px; font-size:12px; color:var(--ink2); font-weight:600; }
   .frog-pick select { font:inherit; font-size:15px; font-weight:500; padding:10px 12px; border-radius:10px; border:1px solid var(--box); background:var(--bg); color:var(--ink); }
+  select { -webkit-appearance:none; appearance:none; padding-right:40px !important; cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238b929c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") !important;
+    background-repeat:no-repeat !important; background-position:right 12px center !important; background-size:16px !important; }
   .frog-pick select:disabled { opacity:.6; cursor:not-allowed; }
   dialog.editor { width:min(460px,calc(100% - 32px)); padding:24px; border:1px solid var(--line); border-radius:22px; background:var(--card-solid); color:var(--ink); box-shadow:var(--shadow); }
   dialog::backdrop { background:rgba(0,0,0,.5); backdrop-filter:blur(3px); }
@@ -273,6 +276,9 @@
   .badges { display:flex; flex-wrap:wrap; gap:6px; }
   .bdg { width:36px; height:36px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:18px; background:color-mix(in srgb, var(--pc) 12%, transparent); border:1px solid color-mix(in srgb, var(--pc) 25%, transparent); cursor:default; }
   .bdg.off { filter:grayscale(1); opacity:.28; background:transparent; border-style:dashed; border-color:var(--line); }
+  button.bdg { font:inherit; font-size:18px; padding:0; cursor:pointer; color:inherit; }
+  .bdg.pinned { position:relative; border-color:var(--pc); box-shadow:0 0 0 1.5px var(--pc) inset; }
+  .bdg.pinned::after { content:"📌"; position:absolute; top:-7px; right:-7px; font-size:11px; }
 
   /* Bas de page */
   .duo { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px; }
@@ -576,21 +582,20 @@ function xpPanel(uid) {
  <details><summary class="game-note">Voir les 10 rangs et les règles XP</summary><p>${RANKS.map(([xp,n,e])=>`${e} ${n} : ${xp} XP`).join(' · ')}</p><p>1 XP par habitude · 2 XP au total pour le Frog · aucun bonus de badge. Décocher retire les XP; les rangs et badges gagnés restent acquis. Toutes les habitudes comptent : leur nombre influence le classement.</p></details>
  <div class="pinned-badges">${g.pinned.map(id=>{const a=ACHIEVEMENTS.find(a=>a[0]===id);return a?`<span>${a[1]} ${a[2]}</span>`:''}).join('')}</div></section>`;
 }
-function achievementCards(uid) {
- if (!data.gameReady) return '<p class="game-note">La progression apparaîtra après activation du suivi.</p>';
- const g=gameFor(uid),mine=uid===me.id;
- return `<div class="achievement-grid">${ACHIEVEMENTS.map(([id,emoji,name,description,goal,unit])=>{
- const earned=g.awards[id],target=id==='clean'?Math.max(1,g.today_total):goal;
- const value=earned?target:Math.min(target,Math.max(0,g.values[id]||0));
- const record=['fire','showing'].includes(id)?g.best_run:id==='excuses'?g.best_frog:id==='perfect'?g.best_perfect:null;
- const count=earned?`${target}/${target} ${unit}`:`${value}/${target} ${unit}`;
- return `<article class="achievement ${earned?'earned':''}"><strong>${emoji} ${name}</strong><p>${description}</p>
- <progress class="game-progress" value="${value}" max="${target}" aria-label="${name}"></progress><div class="counter">${count} · ${Math.round(value/target*100)} %</div>
- ${record!==null?`<small>Série actuelle : ${g.values[id]||0} · record : ${record||0}</small>`:''}
- <small>${earned?`✓ Débloqué le ${esc(earned)}`:id==='comeback'?(g.comeback_ready?'Complète une habitude → retour réussi':'Disponible après une pause de 3 jours'):id==='clean'&&!g.today_total?'Ajoute une habitude pour commencer':'En cours'}</small>
- ${mine&&earned?`<button class="pin-badge" data-pin="${id}" aria-pressed="${g.pinned.includes(id)}">${g.pinned.includes(id)?'📌 Épinglé':'Épingler au profil'}</button>`:''}</article>`;
- }).join('')}</div><p class="game-note">Badges acquis conservés · jusqu’à 3 badges épinglés · les paliers Frog 1 → 10 → 50 → 100 restent visibles.</p>`;
+// Badges en icônes seulement: couleur si obtenu, gris sinon; nom et condition au survol, sans chiffres.
+// Les achievements (vérifiés par le serveur) passent d'abord; on retire de la liste locale ceux qui les répètent.
+const DOUBLONS = new Set(['Premier pas', 'Une semaine', 'Un mois', 'Journée parfaite', 'Semaine parfaite', 'Centurion']);
+function badgeIcons(uid, bs, mine) {
+  const g = gameFor(uid);
+  const server = data.gameReady ? ACHIEVEMENTS.map(([id, e, t, d]) => {
+    const earned = g.awards[id], pinned = g.pinned.includes(id), can = mine && earned;
+    const tip = `${t} · ${d}${pinned ? ' · 📌 épinglé' : can ? ' · touche pour épingler' : ''}`;
+    return `<${can ? 'button' : 'span'} class="bdg ${earned ? '' : 'off'} ${pinned ? 'pinned' : ''}" ${can ? `data-pin="${id}" aria-pressed="${pinned}"` : ''} data-tip="${esc(tip)}" aria-label="${esc(t)}">${e}</${can ? 'button' : 'span'}>`;
+  }) : [];
+  const local = bs.filter(b => !DOUBLONS.has(b.t)).map(b => `<span class="bdg ${b.ok ? '' : 'off'}" data-tip="${esc(b.t)} · ${esc(b.d)}" aria-label="${esc(b.t)}">${b.e}</span>`);
+  return `<div class="badges">${[...server, ...local].join('')}</div>`;
 }
+
 function xpLeaderboard() {
  const rows=data.profiles.map(p=>({p,g:gameFor(p.id)})).sort((a,b)=>b.g[xpPeriod]-a.g[xpPeriod]||a.p.name.localeCompare(b.p.name));
  const champion=Math.max(0,...rows.map(o=>o.g.previous_week));
@@ -1016,12 +1021,8 @@ function render() {
         <div class="heat-wrap"><div class="heat-months">${months}</div><div class="heat">${cells}</div></div>
         <div class="heat-foot"><span>${data.checks.filter(c => c.user_id === p.id).length} cochés au total</span><span class="legend">moins <i style="background:var(--cell)"></i><i style="background:color-mix(in srgb, var(--pc) 30%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 55%, var(--cell))"></i><i style="background:color-mix(in srgb, var(--pc) 78%, var(--cell))"></i><i style="background:var(--pc)"></i> tout</span></div>
         </div>
-        <button class="sect" data-fold="achievements" aria-expanded="${shown('achievements')}"><span>Achievements · ${data.gameReady ? Object.keys(gameFor(p.id).awards).length : '—'}/12</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
-        <div class="fold ${shown('achievements') ? '' : 'hidden'}" data-fold-body="achievements">${achievementCards(p.id)}</div>
         <button class="sect" data-fold="badges" aria-expanded="${shown('badges')}"><span>Badges</span><span class="chev"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></span></button>
-        <div class="fold ${shown('badges') ? '' : 'hidden'}" data-fold-body="badges">
-        <div class="badges">${bs.map(b => `<span class="bdg ${b.ok ? '' : 'off'}" data-tip="${esc(b.t)} · ${esc(b.d)}">${b.e}</span>`).join('')}</div>
-        </div>
+        <div class="fold ${shown('badges') ? '' : 'hidden'}" data-fold-body="badges">${badgeIcons(p.id, bs, mine)}</div>
       </section>`;
   }).join('');
 

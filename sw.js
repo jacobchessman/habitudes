@@ -1,6 +1,14 @@
-// Service worker: reçoit les notifications même quand l'appli est fermée. Aucune mise en cache.
+// Service worker: reçoit les notifications même quand l'appli est fermée.
+// Et garantit la dernière version: la page et ses fichiers viennent toujours du réseau (le cache du
+// navigateur gardait jusqu'à 10 min, plus dans l'appli installée), avec repli sur le cache hors ligne.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET' || url.origin !== self.location.origin) return; // Supabase, polices, CDN: intouchés
+  e.respondWith(fetch(e.request, { cache: 'no-cache' }).catch(() => caches.match(e.request)));
+});
 
 self.addEventListener('push', e => {
   let d = {};

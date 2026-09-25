@@ -443,6 +443,39 @@
   .pcard small { font-size:18px; } .pcard.red { color:#c8323b; }
   .pcard.back { background:repeating-linear-gradient(45deg, #2a4d9b 0 6px, #1e3a78 6px 12px); color:transparent; }
   .bj-actions { display:flex; justify-content:center; gap:8px; margin:10px 0; }
+  /* Cosmétiques */
+  .av { position:relative; }
+  .av .hat { position:absolute; top:-17px; left:50%; transform:translateX(-50%) rotate(-12deg); font-size:24px; line-height:1; filter:drop-shadow(0 2px 3px rgba(0,0,0,.35)); pointer-events:none; }
+  .pemo { font-size:18px; margin-left:2px; }
+  .nc-rouge { color:#ff5a5f; }
+  .nc-glace { background:linear-gradient(90deg, #8be9ff, #ffffff, #8be9ff); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .nc-neon { color:#c77dff; text-shadow:0 0 6px #b14aff, 0 0 12px #b14aff; }
+  .nc-or { background:linear-gradient(90deg, #b8862b, #ffe08a, #b8862b); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .nc-feu, .nc-arc { background-size:200% auto; -webkit-background-clip:text; background-clip:text; color:transparent; animation:shine 3s linear infinite; }
+  .nc-feu { background-image:linear-gradient(90deg, #ff3d00, #ffb300, #ff3d00); }
+  .nc-arc { background-image:linear-gradient(90deg, #ff4d4d, #ffb84d, #fff34d, #4dff88, #4dc3ff, #b84dff, #ff4d4d); }
+  @keyframes shine { to { background-position:200% center; } }
+  .person.fr-or { border:2px solid #d4a73c; box-shadow:0 0 18px rgba(212,167,60,.35), var(--shadow); }
+  .person.fr-neon { border:2px solid #c77dff; box-shadow:0 0 16px rgba(199,125,255,.55), 0 0 32px rgba(77,195,255,.25), var(--shadow); }
+  .person.fr-flammes { border:2px solid #ff6a00; box-shadow:0 8px 28px rgba(255,106,0,.45), inset 0 -30px 40px -30px rgba(255,90,0,.35); }
+  .person.fr-galaxie { border:2px solid #7a5cff; background:radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 60%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 80%, #fff, transparent), radial-gradient(1px 1px at 85% 15%, #fff, transparent), linear-gradient(160deg, #1b1340, #0e1430 60%, #231046); }
+  .person.fr-galaxie { --ink:#f1f3f6; --ink2:#c9cfd8; --mute:#9aa3ae; --cell:rgba(255,255,255,.08); --line:rgba(255,255,255,.12); --box:rgba(255,255,255,.22); color:var(--ink); }
+  .items { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; }
+  .item { display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px 8px; border:1px solid var(--line); border-radius:14px; background:var(--cell); text-align:center; }
+  .item.worn { border-color:#e0b44a; box-shadow:0 0 0 1px #e0b44a inset; }
+  .item .iemo { font-size:30px; line-height:1.1; }
+  .item .iname { font-size:12px; color:var(--ink2); }
+  .item .pname { font-weight:700; font-size:16px; }
+  .item .chip-bet.buy { background:color-mix(in srgb, #e0b44a 20%, var(--card-solid)); }
+  .item .chip-bet:disabled { opacity:.45; cursor:not-allowed; }
+  .fprev { width:56px; height:36px; border-radius:8px; background:var(--card-solid); display:block; }
+  .fprev.fr-or { border:2px solid #d4a73c; box-shadow:0 0 10px rgba(212,167,60,.5); }
+  .fprev.fr-neon { border:2px solid #c77dff; box-shadow:0 0 10px rgba(199,125,255,.7); }
+  .fprev.fr-flammes { border:2px solid #ff6a00; box-shadow:0 4px 12px rgba(255,106,0,.6); }
+  .fprev.fr-galaxie { border:2px solid #7a5cff; background:linear-gradient(160deg, #1b1340, #0e1430 60%, #231046); }
+  .casino-lock { text-align:center; padding:28px 10px; }
+  .casino-lock span { font-size:44px; display:block; } .casino-lock b { font-size:17px; display:block; margin-top:6px; }
+  .casino-lock p { color:var(--ink2); font-size:14px; margin:8px 0 0; line-height:1.5; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -637,7 +670,7 @@ async function load() {
   const sequence = ++loadSequence, uid = me?.id;
   if (!uid) return;
   const today = ymd(new Date());
-  const [p, h, c, f, fc, fs, g, notes, chat, gold] = await Promise.all([
+  const [p, h, c, f, fc, fs, g, notes, chat, gold, cos, inv, cat] = await Promise.all([
     sb.from('profiles').select('*'),
     sb.from('habits').select('*').order('created_at'),
     sb.from('checks').select('*').gte('day', ymd(addDays(new Date(), -400))),
@@ -648,6 +681,9 @@ async function load() {
     sb.from('completion_notes').select('*').gte('created_at', new Date(Date.now()-30*864e5).toISOString()).order('created_at', {ascending:false}).limit(500),
     sb.from('chat_messages').select('*').order('created_at', { ascending: false }).limit(100),
     sb.rpc('gold_me'),
+    sb.from('cosmetics').select('*'),
+    sb.from('inventory').select('item_id'),
+    catalog ? Promise.resolve({ data: catalog }) : sb.rpc('shop_catalog'),
   ]);
   if (sequence !== loadSequence || saving || me?.id !== uid) return;
   if (p.error || h.error || c.error) { toast('Chargement impossible. Réessaie dans un instant.'); return; }
@@ -655,7 +691,9 @@ async function load() {
   data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [],
     frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error, game: g.data || [], gameReady: !g.error, notes: notes.data || [], notesReady: !notes.error,
     chat: (chat.data || []).reverse(), chatReady: !chat.error,
-    gold: gold.error ? null : Number(gold.data) };
+    gold: gold.error ? null : Number(gold.data),
+    cosmetics: cos.data || [], owned: new Set((inv.data || []).map(i => i.item_id)) };
+  if (!cat.error && cat.data) catalog = cat.data;
   render();
   if (oldRank && data.gameReady && rankFor(gameFor(uid).peak_xp).name !== oldRank) {
     const panel = app.querySelector('[data-my-rank]'); panel?.classList.add('rank-up');
@@ -1014,7 +1052,15 @@ function chatTile() {
 }
 
 // ---------- Boutique: casino (tout se joue sur le serveur, ici on affiche seulement) ----------
-const shop = { game: 'slots', bet: 10, busy: false, msg: '', slots: ['🍒', '🍋', '🔔'], roul: { type: 'rouge', n: 17, last: null }, bj: null };
+let catalog = null;
+const CATS = [['hat', '🎩 Chapeaux'], ['color', '🎨 Couleur du nom'], ['emoji', '😎 Emoji du nom'], ['frame', '🖼️ Cadres']];
+const itemOf = id => (catalog || []).find(i => i.id === id);
+// Ce qu'une personne porte, traduit en valeurs d'affichage (emoji, classe de couleur, cadre)
+function cosm(uid) {
+  const c = (data.cosmetics || []).find(x => x.user_id === uid) || {};
+  return { hat: itemOf(c.hat)?.value, color: itemOf(c.color)?.value, emoji: itemOf(c.emoji)?.value, frame: itemOf(c.frame)?.value, raw: c };
+}
+const shop = { tab: 'items', game: 'slots', bet: 10, busy: false, msg: '', slots: ['🍒', '🍋', '🔔'], roul: { type: 'rouge', n: 17, last: null }, bj: null };
 const SYMS = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'];
 const card = c => { const r = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'][c % 13], s = ['♠','♥','♦','♣'][Math.floor(c / 13)]; return `<span class="pcard ${s === '♥' || s === '♦' ? 'red' : ''}">${r}<small>${s}</small></span>`; };
 function setGold(v) { data.gold = Number(v); const g = document.getElementById('gold-amount'); if (g) g.textContent = data.gold; }
@@ -1048,11 +1094,25 @@ function renderShop() {
         : `${betRow}<button class="btn big" id="play" ${shop.busy ? 'disabled' : ''}>Distribuer</button>`}
       <p class="paytable">Gagné ×2 · Blackjack ×2,5 · Égalité: mise remboursée · Le croupier tire jusqu'à 17</p>`,
   }[shop.game];
+  const today = model().day(me.id, ymd(new Date())), open = today.total > 0 && today.done >= today.total;
+  const mineC = cosm(me.id).raw;
+  const items = CATS.map(([cat, label]) => `<h4 class="st-h">${label}</h4><div class="items">${(catalog || []).filter(i => i.category === cat).map(i => {
+      const owned = data.owned?.has(i.id), worn = mineC[cat] === i.id;
+      const preview = cat === 'color' ? `<span class="pname nc-${i.value}">${esc(data.profiles.find(x => x.id === me.id)?.name || 'Nom')}</span>` : cat === 'frame' ? `<span class="fprev fr-${i.value}"></span>` : `<span class="iemo">${i.value}</span>`;
+      return `<div class="item ${worn ? 'worn' : ''}">${preview}<span class="iname">${esc(i.name)}</span>
+        ${worn ? `<button class="chip-bet on" data-unequip="${cat}">Porté ✓</button>` : owned ? `<button class="chip-bet" data-equip="${i.id}" data-cat="${cat}">Mettre</button>`
+          : `<button class="chip-bet buy" data-buy="${i.id}" ${gold < i.price ? 'disabled' : ''}>${i.price} 🪙</button>`}</div>`; }).join('')}</div>`).join('');
   dlg.innerHTML = `<div class="nc-head"><h2 id="shop-title">🏪 Boutique</h2><span class="shop-gold">🪙 <b class="num">${gold}</b></span><button class="nc-x" id="shop-close" aria-label="Fermer">✕</button></div>
-    <h4 class="st-h">🎰 Casino</h4>
-    <div class="st-tabs">${games.map(([k, l]) => `<button data-game="${k}" aria-selected="${shop.game === k}">${l}</button>`).join('')}</div>
-    <div class="casino">${body}<p class="casino-msg ${shop.msgClass || ''}">${shop.msg || ''}</p></div>
-    <p class="st-note">1 XP gagné = 1 🪙. Mise de 1 à 1000. Tout se joue sur le serveur: pas moyen de tricher.</p>`;
+    <div class="st-tabs"><button data-shoptab="items" aria-selected="${shop.tab === 'items'}">🛍️ Articles</button><button data-shoptab="casino" aria-selected="${shop.tab === 'casino'}">🎰 Casino</button></div>
+    ${shop.tab === 'items' ? `${catalog ? items : '<p class="empty">Chargement…</p>'}<p class="casino-msg ${shop.msgClass || ''}">${shop.msg || ''}</p><p class="st-note">Ce que tu portes est visible par tout le groupe. Touche « Porté ✓ » pour l’enlever.</p>`
+      : open ? `<div class="st-tabs">${games.map(([k, l]) => `<button data-game="${k}" aria-selected="${shop.game === k}">${l}</button>`).join('')}</div>
+        <div class="casino">${body}<p class="casino-msg ${shop.msgClass || ''}">${shop.msg || ''}</p></div>
+        <p class="st-note">1 XP gagné = 1 🪙. Mise de 1 à 1000. Tout se joue sur le serveur: pas moyen de tricher.</p>`
+      : `<div class="casino-lock"><span>🔒</span><b>Le casino est fermé</b><p>Il ouvre quand toutes tes habitudes du jour sont cochées.<br>Aujourd’hui: <b>${today.done}/${today.total}</b></p></div>`}`;
+  dlg.querySelectorAll('[data-shoptab]').forEach(b => b.onclick = () => { shop.tab = b.dataset.shoptab; shop.msg = ''; renderShop(); });
+  dlg.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => buyItem(b.dataset.buy));
+  dlg.querySelectorAll('[data-equip]').forEach(b => b.onclick = () => equip(b.dataset.cat, b.dataset.equip));
+  dlg.querySelectorAll('[data-unequip]').forEach(b => b.onclick = () => equip(b.dataset.unequip, null));
   document.getElementById('shop-close').onclick = () => dlg.close();
   dlg.querySelectorAll('[data-game]').forEach(b => b.onclick = () => { shop.game = b.dataset.game; shop.msg = ''; renderShop(); });
   dlg.querySelectorAll('[data-bet]').forEach(b => b.onclick = () => { shop.bet = b.dataset.bet === 'all' ? Math.max(1, Math.min(1000, data.gold || 1)) : Number(b.dataset.bet); renderShop(); });
@@ -1061,6 +1121,18 @@ function renderShop() {
   document.getElementById('rnum')?.addEventListener('change', e => { shop.roul.n = Math.max(0, Math.min(36, Math.floor(Number(e.target.value) || 0))); });
   document.getElementById('play')?.addEventListener('click', play);
   dlg.querySelectorAll('[data-bj]').forEach(b => b.onclick = () => bjAction(b.dataset.bj));
+}
+async function buyItem(id) {
+  const it = itemOf(id); if (!it || !confirm(`Acheter « ${it.name} » pour ${it.price} 🪙?`)) return;
+  const { data: r, error } = await sb.rpc('shop_buy', { p_item: id });
+  if (error) { result(-1, error.message); return renderShop(); }
+  setGold(r.balance); data.owned.add(id); result(1, `✨ ${it.name} acheté et porté!`); reload(0); renderShop();
+}
+async function equip(cat, id) {
+  const { error } = await sb.rpc('shop_equip', { p_cat: cat, p_item: id });
+  if (error) { result(-1, error.message); return renderShop(); }
+  const c = (data.cosmetics || []).find(x => x.user_id === me.id); if (c) c[cat] = id; else data.cosmetics.push({ user_id: me.id, [cat]: id });
+  shop.msg = ''; render(); renderShop();
 }
 function result(net, text) { shop.msg = text; shop.msgClass = net > 0 ? 'win' : net < 0 ? 'lose' : ''; }
 async function play() {
@@ -1523,10 +1595,10 @@ function render() {
     const fst = data.frogStats.find(x => x.user_id === p.id), frogEaten = { total: Number(fst?.eaten_total || 0), recent: Number(fst?.eaten_30 || 0) };
 
     return `
-      <section class="card person ${mine?'me':''}" data-uid="${p.id}" style="--pc:${pc}">
+      <section class="card person ${mine?'me':''} ${cosm(p.id).frame ? 'fr-' + cosm(p.id).frame : ''}" data-uid="${p.id}" style="--pc:${pc}">
         <div class="ph">
-          <span class="av">${initial(p.name)}</span>
-          <div class="who"><h2>${esc(p.name)}${mine ? '<small>toi</small>' : ''}</h2><div class="sub" data-tip="${esc(sub)}">${levelPill(p.id) || sub}</div></div>
+          <span class="av">${initial(p.name)}${cosm(p.id).hat ? `<span class="hat">${cosm(p.id).hat}</span>` : ''}</span>
+          <div class="who"><h2><span class="pname ${cosm(p.id).color ? 'nc-' + cosm(p.id).color : ''}">${esc(p.name)}</span>${cosm(p.id).emoji ? `<span class="pemo">${cosm(p.id).emoji}</span>` : ''}${mine ? '<small>toi</small>' : ''}</h2><div class="sub" data-tip="${esc(sub)}">${levelPill(p.id) || sub}</div></div>
           ${ring(t.done, t.total)}
         </div>
         <div class="kpis">

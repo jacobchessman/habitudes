@@ -1020,6 +1020,7 @@ const card = c => { const r = ['A','2','3','4','5','6','7','8','9','10','J','Q',
 function setGold(v) { data.gold = Number(v); const g = document.getElementById('gold-amount'); if (g) g.textContent = data.gold; }
 async function openShop() {
   const dlg = document.getElementById('shop'); if (!dlg.open) dlg.showModal();
+  shop.bet = Math.max(1, Math.min(shop.bet, data.gold || 1)); // jamais une mise de départ plus grande que le solde
   renderShop();
   const cur = await sb.rpc('bj_current'); if (!cur.error && cur.data) { shop.bj = cur.data; renderShop(); }
 }

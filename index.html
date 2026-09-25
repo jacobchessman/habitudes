@@ -413,6 +413,36 @@
   .theme-nav button { flex:1; padding:9px 10px !important; font-size:13px; }
   .theme-hours { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:10px; font-size:14px; color:var(--ink2); }
   .theme-hours select { width:auto; padding:6px 10px; }
+  /* Boutique et casino */
+  .shop-btn { height:40px; padding:0 12px; border-radius:12px; border:1px solid color-mix(in srgb, #e0b44a 45%, var(--line)); background:color-mix(in srgb, #e0b44a 12%, var(--card)); color:var(--ink); font:inherit; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .shop-btn b { font-weight:700; } .shop-lbl { color:var(--ink2); font-size:13px; }
+  @media (max-width:520px) { .shop-lbl { display:none; } }
+  dialog.shop { width:min(560px, calc(100% - 20px)); }
+  .shop-gold { margin-left:auto; margin-right:10px; font-size:16px; }
+  .casino { text-align:center; }
+  .reels { display:flex; justify-content:center; gap:10px; margin:6px 0 10px; }
+  .reels span { width:84px; height:84px; border-radius:16px; background:var(--cell); display:flex; align-items:center; justify-content:center; font-size:46px; box-shadow:inset 0 2px 8px rgba(0,0,0,.25); }
+  .reels.spin span { filter:blur(1px); }
+  .paytable { font-size:12px; color:var(--mute); margin:6px 0 10px; }
+  .bet-row { display:flex; justify-content:center; align-items:center; gap:6px; flex-wrap:wrap; margin:10px 0; }
+  .bet-row label, .rnum { font-size:13px; color:var(--ink2); display:inline-flex; align-items:center; gap:6px; }
+  .bet-row input, .rnum input { width:90px; padding:8px 10px; border-radius:10px; border:1px solid var(--box); background:var(--bg); color:var(--ink); font:inherit; }
+  .chip-bet { border:1px solid var(--line); background:var(--cell); color:var(--ink); border-radius:999px; padding:6px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  .chip-bet.on { background:#e0b44a; color:#111; border-color:#e0b44a; font-weight:600; }
+  .btn.big { font-size:16px; padding:12px 28px; }
+  .casino-msg { min-height:22px; margin:10px 0 0; font-weight:600; }
+  .casino-msg.win { color:var(--c0); } .casino-msg.lose { color:var(--c2); }
+  .wheel { width:96px; height:96px; margin:4px auto 12px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--cell); border:6px solid #b8862b; font-size:30px; color:#fff; }
+  .wheel.rouge { background:#c8323b; } .wheel.noir { background:#1c1f24; } .wheel.vert { background:#1f8a4c; }
+  .wheel b { font-weight:700; } .wheel:not(.rouge):not(.noir):not(.vert) b { color:var(--ink); }
+  .bets { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
+  .table { background:radial-gradient(ellipse at center, #1f6b45, #154d32); border-radius:18px; padding:14px; display:flex; flex-direction:column; gap:12px; margin-bottom:8px; }
+  .hand { text-align:left; } .hand .who { color:#e9f5ee; font-size:13px; font-weight:600; }
+  .hand > div { display:flex; gap:6px; margin-top:6px; min-height:74px; flex-wrap:wrap; }
+  .pcard { width:52px; height:72px; border-radius:8px; background:#fff; color:#15171b; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:700; font-size:18px; box-shadow:0 3px 8px rgba(0,0,0,.3); line-height:1; }
+  .pcard small { font-size:18px; } .pcard.red { color:#c8323b; }
+  .pcard.back { background:repeating-linear-gradient(45deg, #2a4d9b 0 6px, #1e3a78 6px 12px); color:transparent; }
+  .bj-actions { display:flex; justify-content:center; gap:8px; margin:10px 0; }
   .add-full { margin-top:10px; padding:10px 14px; border-radius:12px; background:var(--cell); color:var(--ink2); font-size:13px; }
   .empty { color:var(--mute); font-size:13px; padding:8px 0; }
 
@@ -538,6 +568,7 @@
 <dialog id="edit-dialog" class="editor" aria-labelledby="editor-title"></dialog>
 <dialog id="note-dialog" class="editor note-editor" aria-labelledby="note-title"></dialog>
 <dialog id="settings" class="editor nc settings" aria-labelledby="st-title"></dialog>
+<dialog id="shop" class="editor nc shop" aria-labelledby="shop-title"></dialog>
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
@@ -606,7 +637,7 @@ async function load() {
   const sequence = ++loadSequence, uid = me?.id;
   if (!uid) return;
   const today = ymd(new Date());
-  const [p, h, c, f, fc, fs, g, notes, chat] = await Promise.all([
+  const [p, h, c, f, fc, fs, g, notes, chat, gold] = await Promise.all([
     sb.from('profiles').select('*'),
     sb.from('habits').select('*').order('created_at'),
     sb.from('checks').select('*').gte('day', ymd(addDays(new Date(), -400))),
@@ -616,13 +647,15 @@ async function load() {
     sb.rpc('gamification_snapshot'),
     sb.from('completion_notes').select('*').gte('created_at', new Date(Date.now()-30*864e5).toISOString()).order('created_at', {ascending:false}).limit(500),
     sb.from('chat_messages').select('*').order('created_at', { ascending: false }).limit(100),
+    sb.rpc('gold_me'),
   ]);
   if (sequence !== loadSequence || saving || me?.id !== uid) return;
   if (p.error || h.error || c.error) { toast('Chargement impossible. Réessaie dans un instant.'); return; }
   const oldRank = data.gameReady ? rankFor(gameFor(uid).peak_xp).name : null;
   data = { profiles: p.data || [], habits: h.data || [], checks: c.data || [],
     frogs: f.data || [], frogChoices: fc.data || [], frogStats: fs.data || [], frogReady: !f.error && !fc.error && !fs.error, game: g.data || [], gameReady: !g.error, notes: notes.data || [], notesReady: !notes.error,
-    chat: (chat.data || []).reverse(), chatReady: !chat.error };
+    chat: (chat.data || []).reverse(), chatReady: !chat.error,
+    gold: gold.error ? null : Number(gold.data) };
   render();
   if (oldRank && data.gameReady && rankFor(gameFor(uid).peak_xp).name !== oldRank) {
     const panel = app.querySelector('[data-my-rank]'); panel?.classList.add('rank-up');
@@ -979,6 +1012,87 @@ function chatTile() {
       : '<p class="empty">Personne n’a encore écrit. Lance la conversation 👋</p>'}
   </section>`;
 }
+
+// ---------- Boutique: casino (tout se joue sur le serveur, ici on affiche seulement) ----------
+const shop = { game: 'slots', bet: 10, busy: false, msg: '', slots: ['🍒', '🍋', '🔔'], roul: { type: 'rouge', n: 17, last: null }, bj: null };
+const SYMS = ['🍒', '🍋', '🔔', '⭐', '💎', '7️⃣'];
+const card = c => { const r = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'][c % 13], s = ['♠','♥','♦','♣'][Math.floor(c / 13)]; return `<span class="pcard ${s === '♥' || s === '♦' ? 'red' : ''}">${r}<small>${s}</small></span>`; };
+function setGold(v) { data.gold = Number(v); const g = document.getElementById('gold-amount'); if (g) g.textContent = data.gold; }
+async function openShop() {
+  const dlg = document.getElementById('shop'); if (!dlg.open) dlg.showModal();
+  renderShop();
+  const cur = await sb.rpc('bj_current'); if (!cur.error && cur.data) { shop.bj = cur.data; renderShop(); }
+}
+function renderShop() {
+  const dlg = document.getElementById('shop'); if (!dlg?.open) return;
+  const gold = data.gold ?? 0, bet = Math.max(1, Math.min(shop.bet, 1000));
+  const games = [['slots', '🎰 Machine à sous'], ['roulette', '🎡 Roulette'], ['blackjack', '🃏 Blackjack']];
+  const betRow = `<div class="bet-row"><label>Mise <input type="number" id="bet" min="1" max="1000" value="${bet}"></label>
+    ${[10, 50, 100].map(v => `<button class="chip-bet" data-bet="${v}">${v}</button>`).join('')}<button class="chip-bet" data-bet="all">Tout</button></div>`;
+  const bj = shop.bj, playing = bj?.status === 'playing';
+  const body = {
+    slots: `<div class="reels ${shop.busy ? 'spin' : ''}">${shop.slots.map(s => `<span>${s}</span>`).join('')}</div>
+      <p class="paytable">Paire = mise remboursée · Trois pareils: 🍒×5 🍋×8 🔔×12 ⭐×20 💎×40 7️⃣×100</p>
+      ${betRow}<button class="btn big" id="play" ${shop.busy ? 'disabled' : ''}>Tourner</button>`,
+    roulette: `<div class="wheel ${shop.roul.last ? shop.roul.last.color : ''} ${shop.busy ? 'spin' : ''}"><b class="num">${shop.roul.last ? shop.roul.last.number : '?'}</b></div>
+      <div class="bets">${[['rouge', '🔴 Rouge ×2'], ['noir', '⚫ Noir ×2'], ['pair', 'Pair ×2'], ['impair', 'Impair ×2'], ['manque', '1-18 ×2'], ['passe', '19-36 ×2'], ['d1', '1-12 ×3'], ['d2', '13-24 ×3'], ['d3', '25-36 ×3'], ['numero', 'Numéro ×36']]
+        .map(([k, l]) => `<button class="chip-bet ${shop.roul.type === k ? 'on' : ''}" data-rtype="${k}">${l}</button>`).join('')}</div>
+      ${shop.roul.type === 'numero' ? `<label class="rnum">Numéro <input type="number" id="rnum" min="0" max="36" value="${shop.roul.n}"></label>` : ''}
+      ${betRow}<button class="btn big" id="play" ${shop.busy ? 'disabled' : ''}>Lancer la bille</button>`,
+    blackjack: `<div class="table">
+        <div class="hand"><span class="who">Croupier ${bj ? `· ${bj.dealer_value}${bj.hidden ? '+?' : ''}` : ''}</span><div>${bj ? bj.dealer.map(card).join('') + (bj.hidden ? '<span class="pcard back">🂠</span>' : '') : ''}</div></div>
+        <div class="hand"><span class="who">Toi ${bj ? `· ${bj.player_value}` : ''}</span><div>${bj ? bj.player.map(card).join('') : ''}</div></div>
+      </div>
+      ${playing ? `<div class="bj-actions"><button class="btn" data-bj="hit">Tirer</button><button class="btn" data-bj="stand">Rester</button>${bj.can_double ? '<button class="btn" data-bj="double">Doubler</button>' : ''}</div>`
+        : `${betRow}<button class="btn big" id="play" ${shop.busy ? 'disabled' : ''}>Distribuer</button>`}
+      <p class="paytable">Gagné ×2 · Blackjack ×2,5 · Égalité: mise remboursée · Le croupier tire jusqu'à 17</p>`,
+  }[shop.game];
+  dlg.innerHTML = `<div class="nc-head"><h2 id="shop-title">🏪 Boutique</h2><span class="shop-gold">🪙 <b class="num">${gold}</b></span><button class="nc-x" id="shop-close" aria-label="Fermer">✕</button></div>
+    <h4 class="st-h">🎰 Casino</h4>
+    <div class="st-tabs">${games.map(([k, l]) => `<button data-game="${k}" aria-selected="${shop.game === k}">${l}</button>`).join('')}</div>
+    <div class="casino">${body}<p class="casino-msg ${shop.msgClass || ''}">${shop.msg || ''}</p></div>
+    <p class="st-note">1 XP gagné = 1 🪙. Mise de 1 à 1000. Tout se joue sur le serveur: pas moyen de tricher.</p>`;
+  document.getElementById('shop-close').onclick = () => dlg.close();
+  dlg.querySelectorAll('[data-game]').forEach(b => b.onclick = () => { shop.game = b.dataset.game; shop.msg = ''; renderShop(); });
+  dlg.querySelectorAll('[data-bet]').forEach(b => b.onclick = () => { shop.bet = b.dataset.bet === 'all' ? Math.max(1, Math.min(1000, data.gold || 1)) : Number(b.dataset.bet); renderShop(); });
+  document.getElementById('bet')?.addEventListener('change', e => { shop.bet = Math.max(1, Math.min(1000, Math.floor(Number(e.target.value) || 1))); });
+  dlg.querySelectorAll('[data-rtype]').forEach(b => b.onclick = () => { shop.roul.type = b.dataset.rtype; renderShop(); });
+  document.getElementById('rnum')?.addEventListener('change', e => { shop.roul.n = Math.max(0, Math.min(36, Math.floor(Number(e.target.value) || 0))); });
+  document.getElementById('play')?.addEventListener('click', play);
+  dlg.querySelectorAll('[data-bj]').forEach(b => b.onclick = () => bjAction(b.dataset.bj));
+}
+function result(net, text) { shop.msg = text; shop.msgClass = net > 0 ? 'win' : net < 0 ? 'lose' : ''; }
+async function play() {
+  const bet = shop.bet;
+  if (bet > (data.gold ?? 0)) { result(-1, 'Pas assez d’or pour cette mise.'); return renderShop(); }
+  shop.busy = true; shop.msg = ''; renderShop();
+  const anim = shop.game === 'slots' ? setInterval(() => { shop.slots = [0, 1, 2].map(() => SYMS[Math.floor(Math.random() * 6)]); renderShop(); }, 90)
+             : shop.game === 'roulette' ? setInterval(() => { shop.roul.last = { number: Math.floor(Math.random() * 37), color: '' }; renderShop(); }, 70) : null;
+  const call = shop.game === 'slots' ? sb.rpc('casino_slots', { p_bet: bet })
+    : shop.game === 'roulette' ? sb.rpc('casino_roulette', { p_bet: bet, p_type: shop.roul.type, p_number: shop.roul.type === 'numero' ? shop.roul.n : null })
+    : sb.rpc('bj_start', { p_bet: bet });
+  const [{ data: r, error }] = await Promise.all([call, new Promise(res => setTimeout(res, anim ? 1100 : 0))]);
+  clearInterval(anim); shop.busy = false;
+  if (error) { result(-1, error.message); return renderShop(); }
+  setGold(r.balance);
+  if (shop.game === 'slots') { shop.slots = r.reels; const net = r.payout - r.bet; result(net, net > 0 ? `🎉 +${net} 🪙 !` : net === 0 ? 'Mise remboursée.' : `Perdu ${r.bet} 🪙.`); }
+  else if (shop.game === 'roulette') { shop.roul.last = r; const net = r.payout - r.bet; result(net, `${r.number} ${r.color === 'rouge' ? '🔴' : r.color === 'noir' ? '⚫' : '🟢'} · ${r.win ? `🎉 +${net} 🪙 !` : `perdu ${r.bet} 🪙.`}`); }
+  else { shop.bj = r; bjMessage(r); }
+  renderShop();
+}
+function bjMessage(h) {
+  if (h.status === 'playing') { shop.msg = ''; return; }
+  const net = h.payout - h.bet;
+  result(net, h.result === 'blackjack!' ? `🃏 Blackjack! +${net} 🪙` : h.result === 'gagné' ? `🎉 Gagné! +${net} 🪙` : h.result === 'égalité' ? 'Égalité, mise remboursée.' : `Perdu ${h.bet} 🪙${h.player_value > 21 ? ' (tu as sauté)' : ''}.`);
+}
+async function bjAction(a) {
+  if (shop.busy) return; shop.busy = true;
+  const { data: r, error } = await sb.rpc('bj_action', { p_action: a });
+  shop.busy = false;
+  if (error) { result(-1, error.message); return renderShop(); }
+  shop.bj = r; setGold(r.balance); bjMessage(r); renderShop();
+}
+document.addEventListener('click', e => { const d = document.getElementById('shop'); if (d?.open && e.target === d) d.close(); });
 
 // ---------- Thème: auto (système), clair, sombre, ou horaire (sombre entre deux heures) ----------
 const THEME_KEY = 'habitudes:theme';
@@ -1347,7 +1461,7 @@ function render() {
   const top = `
     <div class="top">
       <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1></div>
-      <div class="meta"><span class="live ${live?'ok':''}" title="Mis à jour en direct"></span><button class="gear" id="gear" aria-label="Réglages" title="Réglages">⚙️${['off', 'ios'].includes(notif) ? '<i class="dot"></i>' : ''}</button></div>
+      <div class="meta"><span class="live ${live?'ok':''}" title="Mis à jour en direct"></span>${data.gold !== null && data.gold !== undefined ? `<button class="shop-btn" id="shop-btn" aria-label="Boutique" title="Boutique et casino">🪙 <b class="num" id="gold-amount">${data.gold}</b><span class="shop-lbl">Boutique</span></button>` : ''}<button class="gear" id="gear" aria-label="Réglages" title="Réglages">⚙️${['off', 'ios'].includes(notif) ? '<i class="dot"></i>' : ''}</button></div>
     </div>`;
   const navigation = `<nav class="view-nav" aria-label="Affichage des habitudes">
     <button data-view="personal" aria-pressed="${personal}">Mon espace</button>
@@ -1479,6 +1593,7 @@ function render() {
     if (i) { i.value = chatKeep.v; if (chatKeep.f) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } } }
   bind();
   renderSettings(); // si les réglages sont ouverts, ils suivent les données
+  if (!shop.busy) renderShop(); // la boutique aussi (solde d'or)
 }
 
 function celebrate() {
@@ -1513,6 +1628,7 @@ function bind() {
   app.querySelectorAll('[data-retry-frog]').forEach(b => b.onclick = () => load());
   app.querySelectorAll('[data-view]').forEach(button => button.onclick = () => setView(button.dataset.view));
   document.getElementById('gear')?.addEventListener('click', () => openSettings());
+  document.getElementById('shop-btn')?.addEventListener('click', () => openShop());
   const ct = document.getElementById('chat-tile');
   if (ct) { ct.onclick = openChat; ct.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openChat(); } }; }
   app.querySelectorAll('[data-open-settings]').forEach(b => b.onclick = () => openSettings(b.dataset.openSettings));

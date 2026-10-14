@@ -91,3 +91,14 @@ alter table public.fit_goals
 
 -- Pesée du soir (14 oct. 2026).
 alter table public.fit_days add column if not exists weight_pm numeric(5,1) check (weight_pm between 0 and 1000);
+
+-- Estimations de macros par l'IA (fonction macros): journal pour la limite de 40 par 24 h. Lu et écrit par la fonction seulement.
+create table if not exists public.fit_ai_log (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users on delete cascade,
+  prompt text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists fit_ai_log_user on public.fit_ai_log (user_id, created_at);
+alter table public.fit_ai_log enable row level security;
+revoke all on public.fit_ai_log from anon, authenticated;

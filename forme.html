@@ -395,8 +395,11 @@ function viewJour(U) {
     ${bar('Glucides', t.carbs, G.carbs, 'g', 'var(--c3)')}
     ${bar('Lipides', t.fat, G.fat, 'g', 'var(--c5)')}
     <div class="chips" style="margin-top:14px">${S.foods.map(f => `<button class="chip" data-food="${f.id}">+ ${esc(f.name)}<small>${f.kcal} kcal · ${fmt(+f.protein, 0)} g P</small></button>`).join('') || '<span class="empty">Aucun favori. Ajoute-en dans Objectifs.</span>'}</div>
-    <details class="more" id="custom"><summary>Autre chose (entrée libre)</summary>
+    <details class="more" id="custom"><summary>Autre chose (l'IA calcule les macros)</summary>
       <div class="grid">
+        <label class="f wide">Décris ce que tu as mangé<input class="t" id="ai-text" maxlength="300" placeholder="Ex.: 2 pointes de pizza pepperoni Domino's"></label>
+        <button class="btn ghost wide" id="ai-go">✨ Estimer les macros</button>
+        <p class="hint wide" id="ai-note" style="margin:0"></p>
         <label class="f wide">Nom<input class="t" id="c-name" placeholder="Ex.: poutine"></label>
         <label class="f">Calories<input class="t" id="c-kcal" inputmode="numeric"></label>
         <label class="f">Prot. (g)<input class="t" id="c-p" inputmode="decimal"></label>
@@ -606,6 +609,21 @@ function bind() {
     // Pas de re-rendu: le tap qui a fait perdre le focus au champ (créatine, un aliment…) doit passer.
     saveDay({ [k]: k === 'steps' && v != null ? Math.round(v) : v }, false);
   });
+  const aiGo = async () => {
+    const text = $('ai-text').value.trim();
+    if (!text) return toast('Décris ton repas');
+    const b = $('ai-go'); b.disabled = true; b.textContent = '✨ Estimation…';
+    const { data, error } = await sb.functions.invoke('macros', { body: { text } });
+    b.disabled = false; b.textContent = '✨ Estimer les macros';
+    let msg = error?.message;
+    if (error?.context?.json) { try { msg = (await error.context.json()).error || msg; } catch {} }
+    if (error || !data) return toast(msg || "L'IA ne répond pas");
+    $('c-name').value = data.name; $('c-kcal').value = data.kcal;
+    $('c-p').value = fmt(data.protein); $('c-c').value = fmt(data.carbs); $('c-f').value = fmt(data.fat);
+    $('ai-note').textContent = `Estimation: ${data.note} Corrige si besoin, puis Ajouter.`;
+  };
+  $('ai-go') && ($('ai-go').onclick = aiGo);
+  $('ai-text')?.addEventListener('keydown', e => { if (e.key === 'Enter') aiGo(); });
   $('c-add') && ($('c-add').onclick = async () => {
     const food = { name: $('c-name').value.trim(), kcal: num($('c-kcal').value), protein: num($('c-p').value) || 0, carbs: num($('c-c').value) || 0, fat: num($('c-f').value) || 0 };
     if (!food.name || food.kcal == null) return toast('Nom et calories requis');

@@ -415,11 +415,9 @@ function viewJour(U) {
     <h2>Récupération</h2>
     <div class="rec">
       <button class="toggle" id="creatine" aria-pressed="${!!D.creatine}"><span>💊 Créatine prise</span><span class="ck">${D.creatine ? '✓' : ''}</span></button>
-      <label class="f">😴 Sommeil (h) · obj. ${fmt(+S.goals.sleep_h)}<input class="t" data-field="sleep_h" inputmode="decimal" value="${D.sleep_h ?? ''}"></label>
-      <label class="f">💧 Eau (L) · obj. ${fmt(+S.goals.water_l)}<input class="t" data-field="water_l" inputmode="decimal" value="${D.water_l ?? ''}"></label>
-      <label class="f">🚶 Pas · obj. ${S.goals.steps}<input class="t" data-field="steps" inputmode="numeric" value="${D.steps ?? ''}"></label>
-      <label class="f">⚖️ Poids (${U}) le matin<input class="t" data-field="weight" inputmode="decimal" value="${D.weight ?? ''}"></label>
-      <label class="f">📏 Tour de taille (cm)<input class="t" data-field="waist" inputmode="decimal" value="${D.waist ?? ''}" placeholder="facultatif"></label>
+      ${[['sleep_h', `😴 Bien dormi (${fmt(+S.goals.sleep_h)} h+)`], ['water_l', `💧 Eau bue (${fmt(+S.goals.water_l)} L)`], ['steps', `🚶 Pas faits (${S.goals.steps})`]].map(([k, l]) =>
+        `<button class="toggle" data-yes="${k}" aria-pressed="${D[k] != null}"><span>${l}</span><span class="ck">${D[k] != null ? '✓' : ''}</span></button>`).join('')}
+      <label class="f" style="grid-column:1 / -1">⚖️ Poids (${U}) le matin<input class="t" data-field="weight" inputmode="decimal" value="${D.weight ?? ''}"></label>
     </div>
   </section>`;
 }
@@ -493,7 +491,7 @@ function viewProgres(U) {
   const l7 = last(7), p7 = Array.from({ length: 7 }, (_, i) => shift(T, -7 - i));
   const gym7 = l7.filter(d => S.days.get(d)?.kind === 'gym').length;
   let crea = 0; for (let d = S.days.get(T)?.creatine ? T : shift(T, -1); S.days.get(d)?.creatine; d = shift(d, -1)) crea++;
-  const sleep7 = avg(l7.map(d => S.days.get(d)?.sleep_h != null ? +S.days.get(d).sleep_h : null));
+  const sleep7 = l7.filter(d => S.days.get(d)?.sleep_h != null).length;
   const fed = l7.filter(logged);
   const protHit = fed.filter(d => totals(d).protein >= G.protein * 0.95).length;
   const kcal7 = avg(fed.map(d => totals(d).kcal));
@@ -520,14 +518,14 @@ function viewProgres(U) {
     const ds = Array.from({ length: 7 }, (_, i) => shift(ws, i)).filter(d => d <= T);
     const f = ds.filter(logged);
     const val = k => avg(ds.map(d => S.days.get(d)?.[k] != null ? +S.days.get(d)[k] : null));
-    return `<tr><td>${short(ws)}</td><td class="num">${gymDaysIn(ws, shift(ws, 6))}</td><td class="num">${fmt(avg(f.map(d => totals(d).kcal)), 0)}</td><td class="num">${fmt(avg(f.map(d => totals(d).protein)), 0)}</td><td class="num">${fmt(val('sleep_h'))}</td><td class="num">${ds.filter(d => S.days.get(d)?.creatine).length}/${ds.length}</td><td class="num">${fmt(val('weight'))}</td></tr>`;
+    return `<tr><td>${short(ws)}</td><td class="num">${gymDaysIn(ws, shift(ws, 6))}</td><td class="num">${fmt(avg(f.map(d => totals(d).kcal)), 0)}</td><td class="num">${fmt(avg(f.map(d => totals(d).protein)), 0)}</td><td class="num">${ds.filter(d => S.days.get(d)?.sleep_h != null).length}/${ds.length}</td><td class="num">${ds.filter(d => S.days.get(d)?.creatine).length}/${ds.length}</td><td class="num">${fmt(val('weight'))}</td></tr>`;
   }).join('');
 
   return `
   <section class="card"><h2>7 derniers jours</h2><div class="tiles">
     ${tile(`${gym7}/3`, 'séances de gym')}
     ${tile(crea ? `${crea} j` : '0', 'créatine de suite')}
-    ${tile(sleep7 != null ? fmt(sleep7) + ' h' : '—', 'sommeil moyen', `obj. ${fmt(+G.sleep_h)} h`)}
+    ${tile(`${sleep7}/7`, 'bonnes nuits', `${fmt(+G.sleep_h)} h+`)}
     ${tile(`${protHit}/${fed.length || 0}`, 'jours protéines atteintes', `${fed.length} jour${fed.length > 1 ? 's' : ''} notés`)}
     ${tile(kcal7 != null ? fmt(kcal7, 0) : '—', 'kcal moyennes', `obj. ${G.kcal}`)}
     ${tile(w7 != null ? fmt(w7) : '—', `poids moyen (${U})`, w7 != null && wp != null ? `${w7 - wp >= 0 ? '+' : ''}${fmt(w7 - wp)} vs sem. passée` : '')}
@@ -598,6 +596,8 @@ function bind() {
   app.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { const m = S.meals.find(x => x.id === +b.dataset.q); setQty(m.id, Math.round((+m.qty + +b.dataset.d) * 100) / 100); });
   app.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => setQty(+b.dataset.rm, 0));
   $('creatine') && ($('creatine').onclick = () => saveDay({ creatine: !S.days.get(day)?.creatine }));
+  // Oui/non: « oui » enregistre l'objectif du jour (les rappels lisent « non vide » comme fait).
+  app.querySelectorAll('[data-yes]').forEach(b => b.onclick = () => { const k = b.dataset.yes; saveDay({ [k]: S.days.get(day)?.[k] != null ? null : +S.goals[k] }); });
   app.querySelectorAll('[data-field]').forEach(i => i.onchange = () => {
     const k = i.dataset.field, v = num(i.value), [lo, hi] = LIMITS[k];
     if (i.value.trim() && (v == null || v < lo || v > hi)) { toast(`Entre ${lo} et ${hi}`); i.value = S.days.get(day)?.[k] ?? ''; return; }

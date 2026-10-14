@@ -3,7 +3,9 @@
 //   key   → clé publique VAPID (générée et gardée en base au premier appel; la clé privée ne sort jamais de Supabase)
 //   test  → notification d'essai à l'utilisateur connecté
 //   check → appelée par le trigger sur `checks`: prévient les autres quand quelqu'un finit sa journée
-//   cron  → appelée chaque heure par pg_cron: rappel à l'heure choisie par chacun (21 h par défaut, heure de Montréal)
+//   cron  → appelée chaque heure par pg_cron: rappel à l'heure choisie par chacun (21 h par défaut, heure de Montréal),
+//           et les 2 rappels Forme du jour (fit_goals.notif_am / notif_pm): seulement ce qui reste à faire
+//   forme-test → envoie tout de suite le rappel Forme à une personne (user_id), sans le noter dans push_log
 // Chacun choisit ce qu'il reçoit dans notif_prefs; ce qui part est noté dans notif_history.
 // `check` et `cron` exigent l'en-tête x-push-token, un jeton généré dans Postgres (table push_config).
 import webpush from "npm:web-push@3.6.7";
@@ -36,7 +38,7 @@ async function config() {
   return c;
 }
 
-async function send(userIds: string[], payload: { title: string; body?: string; tag?: string }, kind: string) {
+async function send(userIds: string[], payload: { title: string; body?: string; tag?: string; url?: string }, kind: string) {
   if (!userIds.length) return 0;
   const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", userIds);
   let sent = 0;
@@ -80,6 +82,48 @@ async function dayState(user_id: string, day: string) {
   return { total: active.length, done: active.length - left.length, left, streakTo, prev: prevDay(day) };
 }
 
+// ---------- Forme: ce qui reste à faire aujourd'hui ----------
+const dow = (k: string) => new Date(k + "T12:00:00Z").getUTCDay();
+async function formeLeft(uid: string, day: string, g: Record<string, any>, slot: "am" | "pm") {
+  const [{ data: d }, { data: meals }, { data: sets }] = await Promise.all([
+    admin.from("fit_days").select("*").eq("user_id", uid).eq("day", day).maybeSingle(),
+    admin.from("fit_meals").select("qty,protein,kcal").eq("user_id", uid).eq("day", day),
+    admin.from("fit_sets").select("id").eq("user_id", uid).eq("day", day).limit(1),
+  ]);
+  const left: string[] = [];
+  if (d?.weight == null) left.push("te peser ⚖️");
+  if (!d?.creatine) left.push("ta créatine 💊");
+  if ((g.gym_days || []).includes(dow(day)) && !d?.kind && !(sets || []).length) left.push("le gym, c'est ta journée 🏋️");
+  if (d?.sleep_h == null) left.push("noter ton sommeil 😴");
+  const sum = (k: "protein" | "kcal") => (meals || []).reduce((a, m) => a + Number(m[k]) * Number(m.qty), 0);
+  const prot = g.protein - sum("protein"), kcal = g.kcal - sum("kcal");
+  if (prot > g.protein * 0.05) left.push(`${Math.round(prot)} g de protéines 🥩`);
+  if (kcal > g.kcal * 0.1) left.push(`${Math.round(kcal)} kcal à manger 🍚`);
+  if (slot === "pm") {
+    if (d?.water_l == null || Number(d.water_l) < Number(g.water_l)) left.push("ton eau 💧");
+    if (d?.steps == null) left.push("noter tes pas 🚶");
+  }
+  return left;
+}
+async function formeCron(today: string, hour: number, onlyUser?: string) {
+  let q = admin.from("fit_goals").select("*").eq("notif", true);
+  if (onlyUser) q = q.eq("user_id", onlyUser);
+  const { data: goals } = await q;
+  let sent = 0;
+  for (const g of goals || []) {
+    const slot = onlyUser ? (hour < 13 ? "am" : "pm") : hour === g.notif_am ? "am" : hour === g.notif_pm ? "pm" : null;
+    if (!slot) continue;
+    const left = await formeLeft(g.user_id, today, g, slot);
+    if (!left.length) continue;
+    if (!onlyUser && !(await once(g.user_id, today, `forme-${slot}`))) continue;
+    const n = left.length, s = n > 1 ? "s" : "";
+    const title = slot === "am" ? `☀️ Forme: ${n} chose${s} à faire aujourd'hui` : `🌙 Forme: il te reste ${n} chose${s}`;
+    const body = left.join(", ").replace(/^./, (c) => c.toUpperCase()) + ".";
+    sent += await send([g.user_id], { title, body, tag: "forme", url: APP_URL + "forme.html" }, "forme");
+  }
+  return sent;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
@@ -101,6 +145,8 @@ Deno.serve(async (req) => {
     const { data: profiles } = await admin.from("profiles").select("id,name");
     const prefs = await prefsMap();
     const today = localDay();
+
+    if (action === "forme-test") return json({ sent: await formeCron(today, Number(body.hour ?? localHour()), body.user_id) });
 
     if (action === "check") {
       if (body.day !== today) return json({ skipped: "pas aujourd'hui" });
@@ -130,6 +176,7 @@ Deno.serve(async (req) => {
         const list = names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} et ${names.length - 3} autre${names.length > 4 ? "s" : ""}`;
         sent += await send([p.id], { title, body: `${s.done}/${s.total} fait. Reste: ${list}.`, tag: "reminder" }, atRisk ? "streak" : "reminder");
       }
+      if (!body.force) sent += await formeCron(today, hour);
       return json({ sent });
     }
 

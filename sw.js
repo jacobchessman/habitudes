@@ -26,7 +26,10 @@ self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    const open = wins.find(w => w.url.includes('/habitudes/'));
-    return open ? open.focus() : self.clients.openWindow(e.notification.data.url);
+    const url = e.notification.data.url, open = wins.find(w => w.url.includes('/habitudes/'));
+    if (!open) return self.clients.openWindow(url);
+    // Un rappel Forme ouvre la page Forme, même si l'appli est déjà ouverte ailleurs.
+    if (url.includes('forme.html') && !open.url.includes('forme.html') && open.navigate) await open.navigate(url);
+    return open.focus();
   })());
 });

@@ -417,6 +417,8 @@
   .shop-btn { height:40px; padding:0 12px; border-radius:12px; border:1px solid color-mix(in srgb, #e0b44a 45%, var(--line)); background:color-mix(in srgb, #e0b44a 12%, var(--card)); color:var(--ink); font:inherit; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
   .shop-btn b { font-weight:700; } .shop-lbl { color:var(--ink2); font-size:13px; }
   @media (max-width:520px) { .shop-lbl { display:none; } }
+  .fit-btn { height:40px; padding:0 12px; border-radius:12px; border:1px solid color-mix(in srgb, var(--c0) 40%, var(--line)); background:color-mix(in srgb, var(--c0) 10%, var(--card)); color:var(--ink); font-size:14px; font-weight:600; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+  .fit-btn:hover { background:color-mix(in srgb, var(--c0) 18%, var(--card)); }
   dialog.shop { width:min(560px, calc(100% - 20px)); }
   .shop-gold { margin-left:auto; margin-right:10px; font-size:16px; }
   .casino { text-align:center; }
@@ -1627,7 +1629,7 @@ function render() {
   const top = `
     <div class="top">
       <div><div class="date">${new Date().toLocaleDateString('fr-CA', { weekday:'long', day:'numeric', month:'long' })}</div><h1>Habitudes</h1></div>
-      <div class="meta"><span class="live ${live?'ok':''}" title="Mis à jour en direct"></span>${data.gold !== null && data.gold !== undefined ? `<button class="shop-btn" id="shop-btn" aria-label="Boutique" title="Boutique et casino">🪙 <b class="num" id="gold-amount">${data.gold}</b><span class="shop-lbl">Boutique</span></button>` : ''}<button class="gear" id="gear" aria-label="Réglages" title="Réglages">⚙️${['off', 'ios'].includes(notif) ? '<i class="dot"></i>' : ''}</button></div>
+      <div class="meta"><span class="live ${live?'ok':''}" title="Mis à jour en direct"></span><a class="fit-btn" href="forme.html" title="Gym, alimentation, sommeil, créatine">💪 Forme</a>${data.gold !== null && data.gold !== undefined ? `<button class="shop-btn" id="shop-btn" aria-label="Boutique" title="Boutique et casino">🪙 <b class="num" id="gold-amount">${data.gold}</b><span class="shop-lbl">Boutique</span></button>` : ''}<button class="gear" id="gear" aria-label="Réglages" title="Réglages">⚙️${['off', 'ios'].includes(notif) ? '<i class="dot"></i>' : ''}</button></div>
     </div>`;
   const navigation = `<nav class="view-nav" aria-label="Affichage des habitudes">
     <button data-view="personal" aria-pressed="${personal}">Mon espace</button>

@@ -279,7 +279,7 @@ async function saveDay(patch, redraw = true) {
     toast('Pas enregistré: ' + error.message); render();
   }
 }
-const LIMITS = { sleep_h: [0, 24], water_l: [0, 20], steps: [0, 200000], weight: [0, 1000], waist: [0, 300] };
+const LIMITS = { sleep_h: [0, 24], water_l: [0, 20], steps: [0, 200000], weight: [0, 1000], weight_pm: [0, 1000] };
 async function addMeal(food, qty = 1) {
   const row = { user_id: me.id, day, name: food.name, qty, kcal: Math.round(food.kcal), protein: food.protein || 0, carbs: food.carbs || 0, fat: food.fat || 0 };
   const { data, error } = await sb.from('fit_meals').insert(row).select().single();
@@ -417,7 +417,8 @@ function viewJour(U) {
       <button class="toggle" id="creatine" aria-pressed="${!!D.creatine}"><span>💊 Créatine prise</span><span class="ck">${D.creatine ? '✓' : ''}</span></button>
       ${[['sleep_h', `😴 Bien dormi (${fmt(+S.goals.sleep_h)} h+)`], ['water_l', `💧 Eau bue (${fmt(+S.goals.water_l)} L)`], ['steps', `🚶 Pas faits (${S.goals.steps})`]].map(([k, l]) =>
         `<button class="toggle" data-yes="${k}" aria-pressed="${D[k] != null}"><span>${l}</span><span class="ck">${D[k] != null ? '✓' : ''}</span></button>`).join('')}
-      <label class="f" style="grid-column:1 / -1">⚖️ Poids (${U}) le matin<input class="t" data-field="weight" inputmode="decimal" value="${D.weight ?? ''}"></label>
+      <label class="f">⚖️ Poids matin (${U})<input class="t" data-field="weight" inputmode="decimal" value="${D.weight ?? ''}"></label>
+      <label class="f">🌙 Poids soir (${U})<input class="t" data-field="weight_pm" inputmode="decimal" value="${D.weight_pm ?? ''}"></label>
     </div>
   </section>`;
 }
@@ -469,20 +470,21 @@ function spark(vals) {
 }
 function weightChart(U) {
   const pts = [];
-  for (let i = 59; i >= 0; i--) { const d = shift(today(), -i), w = S.days.get(d)?.weight; pts.push({ d, w: w != null ? +w : null }); }
+  for (let i = 59; i >= 0; i--) { const d = shift(today(), -i), r = S.days.get(d); pts.push({ d, w: r?.weight != null ? +r.weight : null, e: r?.weight_pm != null ? +r.weight_pm : null }); }
   const has = pts.filter(p => p.w != null);
   if (has.length < 2) return '<p class="empty">Note ton poids le matin pour voir la courbe (au moins 2 jours).</p>';
   const roll = pts.map((p, i) => avg(pts.slice(Math.max(0, i - 6), i + 1).map(x => x.w)));
-  const vals = [...has.map(p => p.w), ...roll.filter(x => x != null)];
+  const vals = [...has.map(p => p.w), ...pts.filter(p => p.e != null).map(p => p.e), ...roll.filter(x => x != null)];
   const mn = Math.min(...vals) - 0.5, mx = Math.max(...vals) + 0.5, W = 600, H = 170;
   const X = i => 8 + i / 59 * (W - 16), Y = v => 10 + (1 - (v - mn) / (mx - mn)) * (H - 30);
   const line = roll.map((v, i) => v == null ? null : `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).filter(Boolean).join(' ');
   return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Poids des 60 derniers jours">
     <text x="8" y="${H - 4}" font-size="11" fill="var(--mute)">${short(pts[0].d)}</text><text x="${W - 8}" y="${H - 4}" font-size="11" fill="var(--mute)" text-anchor="end">aujourd'hui</text>
     <text x="8" y="14" font-size="11" fill="var(--mute)">${fmt(mx - 0.5)} ${U}</text>
-    ${pts.map((p, i) => p.w == null ? '' : `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.w).toFixed(1)}" r="3" fill="var(--c3)" opacity=".45"><title>${short(p.d)}: ${fmt(p.w)} ${U}</title></circle>`).join('')}
+    ${pts.map((p, i) => p.w == null ? '' : `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.w).toFixed(1)}" r="3" fill="var(--c3)" opacity=".45"><title>${short(p.d)} matin: ${fmt(p.w)} ${U}</title></circle>`).join('')}
+    ${pts.map((p, i) => p.e == null ? '' : `<circle cx="${X(i).toFixed(1)}" cy="${Y(p.e).toFixed(1)}" r="3" fill="var(--c5)" opacity=".55"><title>${short(p.d)} soir: ${fmt(p.e)} ${U}</title></circle>`).join('')}
     <polyline points="${line}" fill="none" stroke="var(--c0)" stroke-width="2.5" stroke-linejoin="round"/>
-  </svg><div class="legend"><span style="--sw:var(--c3)">poids du jour</span><span style="--sw:var(--c0)">moyenne 7 jours</span></div>`;
+  </svg><div class="legend"><span style="--sw:var(--c3)">matin</span><span style="--sw:var(--c5)">soir</span><span style="--sw:var(--c0)">moyenne 7 jours (matin)</span></div>`;
 }
 
 function viewProgres(U) {

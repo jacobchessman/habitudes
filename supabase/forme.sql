@@ -88,3 +88,6 @@ alter table public.fit_goals
   add column if not exists notif_am int not null default 8 check (notif_am between 5 and 12),
   add column if not exists notif_pm int not null default 19 check (notif_pm between 13 and 23),
   add column if not exists gym_days int[] not null default '{1,3,5}'; -- 0 = dimanche … 6 = samedi
+
+-- Pesée du soir (14 oct. 2026).
+alter table public.fit_days add column if not exists weight_pm numeric(5,1) check (weight_pm between 0 and 1000);

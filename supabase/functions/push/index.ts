@@ -91,7 +91,7 @@ async function formeLeft(uid: string, day: string, g: Record<string, any>, slot:
     admin.from("fit_sets").select("id").eq("user_id", uid).eq("day", day).limit(1),
   ]);
   const left: string[] = [];
-  if (d?.weight == null) left.push("te peser ⚖️");
+  if (slot === "am" ? d?.weight == null : d?.weight_pm == null) left.push(slot === "am" ? "te peser ⚖️" : "te peser ce soir ⚖️");
   if (!d?.creatine) left.push("ta créatine 💊");
   if ((g.gym_days || []).includes(dow(day)) && !d?.kind && !(sets || []).length) left.push("le gym, c'est ta journée 🏋️");
   if (d?.sleep_h == null) left.push("noter ton sommeil 😴");
